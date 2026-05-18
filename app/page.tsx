@@ -6,8 +6,10 @@ import {
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/server";
 
 const features = [
   {
@@ -27,7 +29,13 @@ const features = [
   },
 ];
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) redirect("/dashboard");
+
   return (
     <main className="relative min-h-screen overflow-hidden">
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,var(--color-primary),transparent_60%)]/[20]" />
