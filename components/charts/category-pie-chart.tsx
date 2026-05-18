@@ -26,6 +26,7 @@ export function CategoryPieChart({ data, currency, locale }: Props) {
     );
   }
   return (
+    <div role="img" aria-label="Donut chart of spending by category for the selected month">
     <ResponsiveContainer width="100%" height={260}>
       <PieChart>
         <Pie
@@ -56,5 +57,6 @@ export function CategoryPieChart({ data, currency, locale }: Props) {
         />
       </PieChart>
     </ResponsiveContainer>
+    </div>
   );
 }

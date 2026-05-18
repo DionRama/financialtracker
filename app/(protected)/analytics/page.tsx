@@ -1,9 +1,13 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import { BarChart3 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import { monthBounds } from "@/lib/queries/month";
 import { formatCurrency, formatMonthLabel } from "@/lib/format";
 import { PageHeader } from "@/components/common/page-header";
+import { EmptyState } from "@/components/common/empty-state";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   CategoryCompareChart,
@@ -115,7 +119,20 @@ export default async function AnalyticsPage({ searchParams }: Props) {
         description="Spot trends and compare months to see where your money goes."
       />
 
-      <div className="grid gap-4 md:grid-cols-2">
+      {(expenses ?? []).length === 0 ? (
+        <EmptyState
+          icon={BarChart3}
+          title="No data to analyze yet"
+          description="Add some expenses to see trends, comparisons, and category breakdowns."
+          action={
+            <Button asChild>
+              <Link href="/expenses">Go to expenses</Link>
+            </Button>
+          }
+        />
+      ) : (
+        <>
+          <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -151,14 +168,16 @@ export default async function AnalyticsPage({ searchParams }: Props) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>6-month trend</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <TrendLineChart data={trendData} currency={currency} locale={locale} />
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>6-month trend</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TrendLineChart data={trendData} currency={currency} locale={locale} />
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }

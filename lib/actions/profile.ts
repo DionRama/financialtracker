@@ -17,23 +17,30 @@ async function requireUser() {
 export async function updateProfile(input: unknown) {
   const data = profileSchema.parse(input);
   const { supabase, user } = await requireUser();
+  const update: {
+    full_name: string | null;
+    currency: string;
+    locale: string;
+    monthly_income_cents?: number | null;
+  } = {
+    full_name: data.full_name ?? null,
+    currency: data.currency,
+    locale: data.locale,
+  };
+  if (data.monthly_income_cents !== undefined) {
+    update.monthly_income_cents = data.monthly_income_cents;
+  }
   const { error } = await supabase
     .from("profiles")
-    .update({
-      full_name: data.full_name ?? null,
-      currency: data.currency,
-      locale: data.locale,
-    })
+    .update(update)
     .eq("id", user.id);
   if (error) throw new Error(error.message);
   revalidatePath("/", "layout");
 }
 
 export async function deleteAllUserData() {
-  const { supabase, user } = await requireUser();
-  // RLS limits these to the current user.
-  await supabase.from("expenses").delete().eq("user_id", user.id);
-  await supabase.from("budgets").delete().eq("user_id", user.id);
-  await supabase.from("categories").delete().eq("user_id", user.id);
+  const { supabase } = await requireUser();
+  const { error } = await supabase.rpc("delete_all_user_data");
+  if (error) throw new Error(error.message);
   revalidatePath("/", "layout");
 }

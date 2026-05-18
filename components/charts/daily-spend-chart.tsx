@@ -26,6 +26,7 @@ interface Props {
 
 export function DailySpendChart({ data, currency, locale }: Props) {
   return (
+    <div role="img" aria-label="Area chart of daily spending for the selected month">
     <ResponsiveContainer width="100%" height={260}>
       <AreaChart
         data={data}
@@ -81,5 +82,6 @@ export function DailySpendChart({ data, currency, locale }: Props) {
         />
       </AreaChart>
     </ResponsiveContainer>
+    </div>
   );
 }

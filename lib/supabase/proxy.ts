@@ -9,16 +9,26 @@ import { getSupabasePublicEnv } from "./env";
 const PROTECTED_PREFIXES = [
   "/dashboard",
   "/expenses",
+  "/income",
   "/budgets",
+  "/goals",
+  "/recurring",
   "/categories",
   "/analytics",
   "/settings",
+  "/onboarding",
 ];
 
 const AUTH_PAGES = new Set(["/login", "/signup"]);
 
 export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  // Expose the current pathname to server components via a request header.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", request.nextUrl.pathname);
+
+  let response = NextResponse.next({
+    request: { headers: requestHeaders },
+  });
   const env = getSupabasePublicEnv();
 
   const supabase = createServerClient<Database>(env.url, env.key, {
@@ -30,7 +40,9 @@ export async function updateSession(request: NextRequest) {
         for (const { name, value } of cookiesToSet) {
           request.cookies.set(name, value);
         }
-        response = NextResponse.next({ request });
+        response = NextResponse.next({
+          request: { headers: requestHeaders },
+        });
         for (const { name, value, options } of cookiesToSet) {
           response.cookies.set(name, value, options);
         }

@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
-import { pickUniqueColor } from "@/lib/colors";
 import { categorySchema } from "@/lib/validation";
 
 async function requireUser() {
@@ -17,21 +16,12 @@ async function requireUser() {
 }
 
 export async function createCategory(input: unknown) {
-  const data = categorySchema.parse(input);
-  const { supabase, user } = await requireUser();
-
-  const { data: existing, error: fetchErr } = await supabase
-    .from("categories")
-    .select("color")
-    .eq("user_id", user.id);
-  if (fetchErr) throw new Error(fetchErr.message);
-
-  const usedColors = (existing ?? []).map((c) => c.color);
-  const color = pickUniqueColor(usedColors, data.name);
+  const parsed = categorySchema.parse(input);
+  const { supabase } = await requireUser();
 
   const { error } = await supabase
-    .from("categories")
-    .insert({ name: data.name, color, user_id: user.id });
+    .rpc("create_category_with_color", { p_name: parsed.name })
+    .single();
   if (error) throw new Error(error.message);
   revalidatePath("/categories");
   revalidatePath("/dashboard");

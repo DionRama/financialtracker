@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
+import { CommandPalette } from "@/components/ui/command-palette";
+import { KeyboardShortcuts } from "@/components/keyboard-shortcuts";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -25,6 +27,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <QueryClientProvider client={queryClient}>
         {children}
         <Toaster />
+        <CommandPalette />
+        <KeyboardShortcuts />
       </QueryClientProvider>
     </ThemeProvider>
   );

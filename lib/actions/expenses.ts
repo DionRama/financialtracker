@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
-import { expenseSchema } from "@/lib/validation";
+import { expenseSchema, importRowsSchema, type ImportRow } from "@/lib/validation";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -53,6 +53,50 @@ export async function updateExpense(input: unknown) {
   revalidatePath("/dashboard");
   revalidatePath("/budgets");
   revalidatePath("/analytics");
+}
+
+export async function importExpenses(
+  rows: ImportRow[],
+): Promise<{ inserted: number; skipped: number }> {
+  const parsed = importRowsSchema.parse(rows);
+  const { supabase, user } = await requireUser();
+
+  const { data: categories, error: catErr } = await supabase
+    .from("categories")
+    .select("id, name")
+    .eq("user_id", user.id);
+  if (catErr) throw new Error(catErr.message);
+
+  const catByName = new Map<string, string>();
+  for (const c of categories ?? []) {
+    catByName.set(c.name.toLowerCase(), c.id);
+  }
+
+  const payload = parsed.map((r) => ({
+    user_id: user.id,
+    category_id: r.category_name
+      ? catByName.get(r.category_name.toLowerCase()) ?? null
+      : null,
+    amount_cents: r.amount_cents,
+    occurred_at: r.date,
+    note: r.note ?? null,
+    tags: r.tags ?? [],
+  }));
+
+  if (payload.length === 0) {
+    return { inserted: 0, skipped: 0 };
+  }
+
+  const { error, count } = await supabase
+    .from("expenses")
+    .insert(payload, { count: "exact" });
+  if (error) throw new Error(error.message);
+
+  const inserted = count ?? payload.length;
+  revalidatePath("/expenses");
+  revalidatePath("/dashboard");
+
+  return { inserted, skipped: rows.length - inserted };
 }
 
 export async function deleteExpense(id: string) {

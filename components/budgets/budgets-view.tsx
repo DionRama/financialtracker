@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,10 +12,10 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/common/empty-state";
 import {
-  copyBudgetsFromPreviousMonth,
   deleteBudget,
   upsertBudget,
 } from "@/lib/actions/budgets";
+import { SmartBudgetsActions } from "./smart-budgets-actions";
 import {
   formatCurrency,
   parseAmountToCents,
@@ -45,6 +45,7 @@ interface BudgetsViewProps {
   spent: SpentRow[];
   currency: string;
   locale: string;
+  monthlyIncomeCents: number | null;
 }
 
 export function BudgetsView({
@@ -54,6 +55,7 @@ export function BudgetsView({
   spent,
   currency,
   locale,
+  monthlyIncomeCents,
 }: BudgetsViewProps) {
   const spentMap = useMemo(
     () =>
@@ -77,9 +79,18 @@ export function BudgetsView({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <CopyFromPreviousMonth month={month} />
-      </div>
+      <SmartBudgetsActions
+        month={month}
+        categories={categories}
+        monthlyIncomeCents={monthlyIncomeCents}
+      />
+      {budgets.length === 0 ? (
+        <EmptyState
+          icon={Plus}
+          title="No budgets set for this month"
+          description="Set a budget for each category to spot overspending before month-end. Use the smart actions above to suggest budgets from your last 3 months of history."
+        />
+      ) : null}
       <div className="grid gap-3 sm:grid-cols-2">
         {categories.map((c) => (
           <BudgetCard
@@ -94,33 +105,6 @@ export function BudgetsView({
         ))}
       </div>
     </div>
-  );
-}
-
-function CopyFromPreviousMonth({ month }: { month: string }) {
-  const [pending, startTransition] = useTransition();
-  return (
-    <Button
-      variant="outline"
-      disabled={pending}
-      onClick={() => {
-        startTransition(async () => {
-          try {
-            const n = await copyBudgetsFromPreviousMonth(month);
-            toast.success(
-              n
-                ? `Copied ${n} budget${n === 1 ? "" : "s"} from last month`
-                : "No budgets to copy",
-            );
-          } catch (e) {
-            toast.error(e instanceof Error ? e.message : "Failed");
-          }
-        });
-      }}
-    >
-      {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-      Copy from last month
-    </Button>
   );
 }
 

@@ -21,6 +21,7 @@ export interface Database {
           full_name: string | null;
           currency: string;
           locale: string;
+          monthly_income_cents: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -29,6 +30,7 @@ export interface Database {
           full_name?: string | null;
           currency?: string;
           locale?: string;
+          monthly_income_cents?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -70,6 +72,7 @@ export interface Database {
           occurred_at: string;
           note: string | null;
           tags: string[];
+          recurring_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -81,10 +84,163 @@ export interface Database {
           occurred_at: string;
           note?: string | null;
           tags?: string[];
+          recurring_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["expenses"]["Insert"]>;
+        Relationships: [];
+      };
+      income_sources: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          kind: "salary" | "freelance" | "investment" | "other";
+          default_amount_cents: number;
+          currency: string;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          kind?: "salary" | "freelance" | "investment" | "other";
+          default_amount_cents?: number;
+          currency?: string;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["income_sources"]["Insert"]>;
+        Relationships: [];
+      };
+      income_entries: {
+        Row: {
+          id: string;
+          user_id: string;
+          source_id: string | null;
+          amount_cents: number;
+          received_at: string;
+          note: string | null;
+          recurring_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          source_id?: string | null;
+          amount_cents: number;
+          received_at?: string;
+          note?: string | null;
+          recurring_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["income_entries"]["Insert"]>;
+        Relationships: [];
+      };
+      savings_goals: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          target_cents: number;
+          saved_cents: number;
+          deadline: string | null;
+          color: string;
+          is_archived: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          target_cents: number;
+          saved_cents?: number;
+          deadline?: string | null;
+          color?: string;
+          is_archived?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["savings_goals"]["Insert"]>;
+        Relationships: [];
+      };
+      recurring_rules: {
+        Row: {
+          id: string;
+          user_id: string;
+          kind: "expense" | "income";
+          category_id: string | null;
+          source_id: string | null;
+          amount_cents: number;
+          currency: string;
+          description: string | null;
+          cadence: "weekly" | "biweekly" | "monthly" | "yearly";
+          interval_count: number;
+          day_of_month: number | null;
+          weekday: number | null;
+          start_date: string;
+          end_date: string | null;
+          next_run_date: string;
+          is_paused: boolean;
+          is_subscription: boolean;
+          vendor: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          kind: "expense" | "income";
+          category_id?: string | null;
+          source_id?: string | null;
+          amount_cents: number;
+          currency?: string;
+          description?: string | null;
+          cadence: "weekly" | "biweekly" | "monthly" | "yearly";
+          interval_count?: number;
+          day_of_month?: number | null;
+          weekday?: number | null;
+          start_date: string;
+          end_date?: string | null;
+          next_run_date: string;
+          is_paused?: boolean;
+          is_subscription?: boolean;
+          vendor?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["recurring_rules"]["Insert"]>;
+        Relationships: [];
+      };
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string;
+          kind: string;
+          payload: Json;
+          severity: "info" | "warning" | "critical";
+          is_read: boolean;
+          created_at: string;
+          dedupe_key: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          kind: string;
+          payload?: Json;
+          severity?: "info" | "warning" | "critical";
+          is_read?: boolean;
+          created_at?: string;
+          dedupe_key: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["notifications"]["Insert"]>;
         Relationships: [];
       };
       budgets: {
@@ -117,11 +273,38 @@ export interface Database {
           month: string;
           category_id: string | null;
           total_cents: number;
+          transactions: number;
         };
         Relationships: [];
       };
+      monthly_income_totals: {
+        Row: {
+          user_id: string;
+          month: string;
+          total_cents: number;
+          entries: number;
+        };
+        Relationships: [];
+      };
+      upcoming_recurring_30d: {
+        Row: Database["public"]["Tables"]["recurring_rules"]["Row"];
+        Relationships: [];
+      };
     };
-    Functions: Record<string, never>;
+    Functions: {
+      create_category_with_color: {
+        Args: { p_name: string };
+        Returns: Database["public"]["Tables"]["categories"]["Row"];
+      };
+      delete_all_user_data: {
+        Args: Record<string, never>;
+        Returns: void;
+      };
+      materialize_recurring: {
+        Args: { p_through?: string };
+        Returns: number;
+      };
+    };
     Enums: Record<string, never>;
   };
 }

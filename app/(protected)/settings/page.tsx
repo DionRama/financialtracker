@@ -13,11 +13,18 @@ export default async function SettingsPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, currency, locale")
-    .eq("id", user.id)
-    .maybeSingle();
+  const [{ data: profile }, { data: sources }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("full_name, currency, locale, monthly_income_cents")
+      .eq("id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("income_sources")
+      .select("id, name")
+      .eq("is_active", true)
+      .order("name"),
+  ]);
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -31,7 +38,9 @@ export default async function SettingsPage() {
           full_name: profile?.full_name ?? null,
           currency: profile?.currency ?? "USD",
           locale: profile?.locale ?? "en-US",
+          monthly_income_cents: profile?.monthly_income_cents ?? null,
         }}
+        sources={sources ?? []}
       />
     </div>
   );

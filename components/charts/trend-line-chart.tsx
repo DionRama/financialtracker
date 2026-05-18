@@ -25,6 +25,7 @@ interface Props {
 
 export function TrendLineChart({ data, currency, locale }: Props) {
   return (
+    <div role="img" aria-label="Line chart of total spending across the last 6 months">
     <ResponsiveContainer width="100%" height={280}>
       <LineChart data={data} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
@@ -67,5 +68,6 @@ export function TrendLineChart({ data, currency, locale }: Props) {
         />
       </LineChart>
     </ResponsiveContainer>
+    </div>
   );
 }

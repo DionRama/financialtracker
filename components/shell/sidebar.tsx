@@ -2,12 +2,16 @@
 
 import {
   BarChart3,
+  Banknote,
   LayoutDashboard,
+  Lightbulb,
   PiggyBank,
   Receipt,
+  Repeat,
   Settings,
   Sparkles,
   Tags,
+  Target,
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
@@ -18,9 +22,13 @@ import { cn } from "@/lib/utils";
 export const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/expenses", label: "Expenses", icon: Receipt },
+  { href: "/income", label: "Income", icon: Banknote },
   { href: "/budgets", label: "Budgets", icon: PiggyBank },
+  { href: "/goals", label: "Goals", icon: Target },
+  { href: "/recurring", label: "Recurring", icon: Repeat },
   { href: "/categories", label: "Categories", icon: Tags },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/insights", label: "Insights", icon: Lightbulb },
   { href: "/settings", label: "Settings", icon: Settings },
 ] as const;
 

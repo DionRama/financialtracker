@@ -27,6 +27,7 @@ interface Props {
 
 export function CategoryCompareChart({ data, currency, locale }: Props) {
   return (
+    <div role="img" aria-label="Bar chart comparing this month's spending to last month for top categories">
     <ResponsiveContainer width="100%" height={320}>
       <BarChart data={data} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
@@ -71,5 +72,6 @@ export function CategoryCompareChart({ data, currency, locale }: Props) {
         />
       </BarChart>
     </ResponsiveContainer>
+    </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -8,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { MoneyInput } from "@/components/ui/money-input";
 import {
   Dialog,
   DialogContent,
@@ -22,16 +24,25 @@ import { signOut } from "@/lib/actions/auth";
 
 interface Props {
   email: string;
-  initial: { full_name: string | null; currency: string; locale: string };
+  initial: {
+    full_name: string | null;
+    currency: string;
+    locale: string;
+    monthly_income_cents: number | null;
+  };
+  sources: { id: string; name: string }[];
 }
 
 const CURRENCIES = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "CNY", "INR", "MXN", "BRL", "SGD"];
 const LOCALES = ["en-US", "en-GB", "de-DE", "fr-FR", "es-ES", "it-IT", "ja-JP", "zh-CN", "pt-BR"];
 
-export function SettingsForm({ email, initial }: Props) {
+export function SettingsForm({ email, initial, sources }: Props) {
   const [fullName, setFullName] = useState(initial.full_name ?? "");
   const [currency, setCurrency] = useState(initial.currency);
   const [locale, setLocale] = useState(initial.locale);
+  const [incomeCents, setIncomeCents] = useState<number>(
+    initial.monthly_income_cents ?? 0,
+  );
   const [pending, startTransition] = useTransition();
 
   function save() {
@@ -43,6 +54,22 @@ export function SettingsForm({ email, initial }: Props) {
           locale,
         });
         toast.success("Profile saved");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed");
+      }
+    });
+  }
+
+  function saveIncome() {
+    startTransition(async () => {
+      try {
+        await updateProfile({
+          full_name: fullName.trim() || null,
+          currency,
+          locale,
+          monthly_income_cents: incomeCents > 0 ? incomeCents : null,
+        });
+        toast.success("Monthly income saved");
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Failed");
       }
@@ -108,6 +135,59 @@ export function SettingsForm({ email, initial }: Props) {
               Save changes
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Monthly income (default)</CardTitle>
+          <CardDescription>
+            Used as a fallback on the dashboard when no income entries exist
+            for the month.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Amount</Label>
+            <MoneyInput
+              value={incomeCents}
+              onChange={setIncomeCents}
+              currency={currency}
+              locale={locale}
+            />
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={saveIncome} disabled={pending}>
+              {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Save income
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Income sources</CardTitle>
+          <CardDescription>
+            Tag each paycheck or freelance gig.{" "}
+            <Link href="/income" className="underline">
+              Manage on /income
+            </Link>
+            .
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {sources.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No sources yet.</p>
+          ) : (
+            <ul className="space-y-1 text-sm">
+              {sources.slice(0, 6).map((s) => (
+                <li key={s.id} className="flex items-center justify-between">
+                  <span>{s.name}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
 

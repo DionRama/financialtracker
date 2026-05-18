@@ -11,6 +11,7 @@ import {
   type ActionResult,
 } from "@/lib/actions/auth";
 import { createClient } from "@/lib/supabase/client";
+import { SITE_URL } from "@/lib/supabase/env";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,11 +36,9 @@ export function LoginForm() {
   async function googleSignIn() {
     const supabase = createClient();
     const next = params.get("next") ?? "/dashboard";
-    const origin =
-      process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin;
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}` },
+      options: { redirectTo: `${SITE_URL}/auth/callback?next=${encodeURIComponent(next)}` },
     });
   }
 

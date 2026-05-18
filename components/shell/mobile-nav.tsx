@@ -7,17 +7,25 @@ import { cn } from "@/lib/utils";
 
 import { NAV } from "./sidebar";
 
-const MOBILE_NAV = NAV.filter((n) =>
-  ["/dashboard", "/expenses", "/budgets", "/analytics", "/settings"].includes(
-    n.href,
-  ),
+const MOBILE_HREFS = [
+  "/dashboard",
+  "/expenses",
+  "/income",
+  "/budgets",
+  "/goals",
+] as const;
+const MOBILE_NAV = MOBILE_HREFS.map((h) => NAV.find((n) => n.href === h)).filter(
+  (n): n is (typeof NAV)[number] => Boolean(n),
 );
 
 export function MobileNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="sticky bottom-0 z-30 flex h-16 items-center justify-around border-t bg-card/95 px-2 backdrop-blur md:hidden">
+    <nav
+      aria-label="Primary"
+      className="sticky bottom-0 z-30 flex h-16 items-center justify-around border-t bg-card/95 px-2 backdrop-blur md:hidden"
+    >
       {MOBILE_NAV.map((item) => {
         const active =
           pathname === item.href || pathname.startsWith(item.href + "/");

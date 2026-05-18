@@ -43,7 +43,7 @@ export default async function BudgetsPage({ searchParams }: Props) {
         .lt("occurred_at", endDate),
       supabase
         .from("profiles")
-        .select("currency, locale")
+        .select("currency, locale, monthly_income_cents")
         .eq("id", user.id)
         .maybeSingle(),
     ]);
@@ -74,6 +74,7 @@ export default async function BudgetsPage({ searchParams }: Props) {
         spent={spent}
         currency={profile?.currency ?? "USD"}
         locale={profile?.locale ?? "en-US"}
+        monthlyIncomeCents={profile?.monthly_income_cents ?? null}
       />
     </div>
   );

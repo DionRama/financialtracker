@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { format } from "date-fns";
-import { Pencil, Plus, Trash2, Receipt } from "lucide-react";
+import { Pencil, Plus, Trash2, Receipt, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import { formatCurrency } from "@/lib/format";
 import { deleteExpense } from "@/lib/actions/expenses";
 
 import { ExpenseFormDialog } from "./expense-form-dialog";
+import { CsvImport } from "./csv-import";
 
 interface Category {
   id: string;
@@ -51,6 +52,7 @@ export function ExpensesView({
   locale,
 }: ExpensesViewProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [csvOpen, setCsvOpen] = useState(false);
   const [editing, setEditing] = useState<ExpenseRow | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("__all__");
   const [search, setSearch] = useState("");
@@ -114,29 +116,32 @@ export function ExpensesView({
             ))}
           </SelectContent>
         </Select>
-        <div className="ml-auto">
+        <div className="ml-auto flex gap-2">
+          <Button variant="outline" onClick={() => setCsvOpen(true)}>
+            <Upload className="h-4 w-4" /> Import CSV
+          </Button>
           <Button onClick={openNew}>
             <Plus className="h-4 w-4" /> Add expense
           </Button>
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {expenses.length === 0 ? (
         <EmptyState
           icon={Receipt}
-          title={expenses.length ? "No matches" : "No expenses yet"}
-          description={
-            expenses.length
-              ? "Try a different filter or search term."
-              : "Add your first expense to start tracking."
-          }
+          title={expenses.length === 0 ? "No expenses yet" : "No matches"}
+          description="Track your first expense to see trends and breakdowns here."
           action={
-            expenses.length ? null : (
-              <Button onClick={openNew}>
-                <Plus className="h-4 w-4" /> Add expense
-              </Button>
-            )
+            <Button onClick={openNew}>
+              <Plus className="h-4 w-4" /> Add expense
+            </Button>
           }
+        />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={Receipt}
+          title="No matches"
+          description="Try a different filter or search term."
         />
       ) : (
         <Card>
@@ -241,6 +246,8 @@ export function ExpensesView({
         categories={categories}
         initial={editing}
       />
+
+      <CsvImport open={csvOpen} onOpenChange={setCsvOpen} />
     </>
   );
 }
