@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef } from "react";
-import { LogOut, User } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { LogOut, Moon, Sun, User } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useTheme } from "@/components/theme-provider";
 
 interface UserMenuProps {
   email: string;
@@ -20,6 +21,10 @@ interface UserMenuProps {
 
 export function UserMenu({ email, fullName }: UserMenuProps) {
   const formRef = useRef<HTMLFormElement>(null);
+  const { resolvedTheme, toggle } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const isDark = mounted ? resolvedTheme === "dark" : true;
   const initials = (fullName || email)
     .split(/[ @.]/)
     .filter(Boolean)
@@ -33,13 +38,13 @@ export function UserMenu({ email, fullName }: UserMenuProps) {
         <DropdownMenuTrigger asChild>
           <Button
             variant="outline"
-            className="h-9 gap-2 px-2"
+            className="h-9 max-w-[8rem] gap-2 px-2 sm:max-w-[14rem]"
             aria-label="Account menu"
           >
-            <span className="grid h-6 w-6 place-items-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
               {initials || "U"}
             </span>
-            <span className="hidden max-w-40 truncate text-sm sm:inline">
+            <span className="truncate text-sm">
               {fullName || email}
             </span>
           </Button>
@@ -53,6 +58,21 @@ export function UserMenu({ email, fullName }: UserMenuProps) {
             <a href="/settings" className="flex items-center gap-2">
               <User className="h-4 w-4" /> Profile & settings
             </a>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={(event) => {
+              event.preventDefault();
+              toggle();
+            }}
+            className="flex items-center gap-2 sm:hidden"
+            suppressHydrationWarning
+          >
+            {isDark ? (
+              <Sun className="h-4 w-4" suppressHydrationWarning />
+            ) : (
+              <Moon className="h-4 w-4" suppressHydrationWarning />
+            )}
+            {isDark ? "Light mode" : "Dark mode"}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem

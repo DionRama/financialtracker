@@ -38,18 +38,18 @@ export async function Topbar({ email, fullName }: TopbarProps) {
   }));
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b bg-background/80 px-4 backdrop-blur sm:px-6">
-      <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-2 border-b bg-background/80 px-5 backdrop-blur sm:gap-3 sm:px-6">
+      <div className="flex min-w-0 items-center gap-3">
         <Suspense fallback={null}>
           <MonthSwitcher />
         </Suspense>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
         <NotificationsBell
           initialUnread={unread ?? 0}
           initialRecent={items}
         />
-        <ThemeToggle />
+        <ThemeToggle className="hidden sm:inline-flex" />
         <UserMenu email={email} fullName={fullName} />
       </div>
     </header>

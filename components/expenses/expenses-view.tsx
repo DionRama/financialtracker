@@ -161,7 +161,7 @@ export function ExpensesView({
           description="Try a different filter or search term."
         />
       ) : (
-        <Card>
+        <Card className="overflow-hidden">
           <CardContent className="p-0">
             <ul className="divide-y">
               {filtered.map((e) => {
