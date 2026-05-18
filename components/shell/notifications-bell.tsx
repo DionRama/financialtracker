@@ -129,8 +129,8 @@ export function NotificationsBell({ initialUnread, initialRecent }: Props) {
                 const title = n.payload.title ?? n.kind;
                 const body = n.payload.body ?? "";
                 const href = n.payload.actionHref;
-                const inner = (
-                  <div className="flex items-start gap-2 px-3 py-2">
+                const innerContent = (
+                  <div className="flex items-start gap-2">
                     <Icon
                       className={cn("mt-0.5 h-4 w-4 shrink-0", tone)}
                       aria-hidden
@@ -156,25 +156,13 @@ export function NotificationsBell({ initialUnread, initialRecent }: Props) {
                         })}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleDismiss(n.id);
-                      }}
-                      className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                      aria-label="Dismiss"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
                   </div>
                 );
                 return (
                   <li
                     key={n.id}
                     className={cn(
-                      "transition-colors hover:bg-secondary/60",
+                      "flex items-stretch transition-colors hover:bg-secondary/60",
                       !n.is_read && "bg-secondary/30",
                     )}
                   >
@@ -185,19 +173,31 @@ export function NotificationsBell({ initialUnread, initialRecent }: Props) {
                           handleRowClick(n);
                           setOpen(false);
                         }}
-                        className="block"
+                        className="block min-w-0 flex-1 px-3 py-2"
                       >
-                        {inner}
+                        {innerContent}
                       </Link>
                     ) : (
                       <button
                         type="button"
                         onClick={() => handleRowClick(n)}
-                        className="block w-full text-left"
+                        className="block min-w-0 flex-1 px-3 py-2 text-left"
                       >
-                        {inner}
+                        {innerContent}
                       </button>
                     )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleDismiss(n.id);
+                      }}
+                      className="shrink-0 px-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      aria-label="Dismiss"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
                   </li>
                 );
               })}
