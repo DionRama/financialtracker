@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
+import { sanitizeDbError } from "@/lib/supabase/error";
 import { budgetSchema } from "@/lib/validation";
 
 async function requireUser() {
@@ -29,16 +30,16 @@ export async function upsertBudget(input: unknown) {
       },
       { onConflict: "user_id,category_id,month" },
     );
-  if (error) throw new Error(error.message);
+  if (error) throw sanitizeDbError(error, "budgets");
   revalidatePath("/budgets");
   revalidatePath("/dashboard");
 }
 
 export async function deleteBudget(id: string) {
   z.string().uuid().parse(id);
-  const { supabase } = await requireUser();
-  const { error } = await supabase.from("budgets").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  const { supabase, user } = await requireUser();
+  const { error } = await supabase.from("budgets").delete().eq("id", id).eq("user_id", user.id);
+  if (error) throw sanitizeDbError(error, "budgets");
   revalidatePath("/budgets");
   revalidatePath("/dashboard");
 }
@@ -58,7 +59,7 @@ export async function copyBudgetsFromPreviousMonth(targetMonth: string) {
     .select("category_id, amount_cents")
     .eq("user_id", user.id)
     .eq("month", prevMonth);
-  if (fetchErr) throw new Error(fetchErr.message);
+  if (fetchErr) throw sanitizeDbError(fetchErr, "budgets");
   if (!previous || previous.length === 0) return 0;
 
   const rows = previous.map((b) => ({
@@ -70,7 +71,7 @@ export async function copyBudgetsFromPreviousMonth(targetMonth: string) {
   const { error } = await supabase
     .from("budgets")
     .upsert(rows, { onConflict: "user_id,category_id,month" });
-  if (error) throw new Error(error.message);
+  if (error) throw sanitizeDbError(error, "budgets");
 
   revalidatePath("/budgets");
   revalidatePath("/dashboard");
@@ -105,7 +106,7 @@ export async function suggestBudgetsFromLast3Months(targetMonth: string) {
     .eq("user_id", user.id)
     .gte("occurred_at", startIso)
     .lt("occurred_at", endIso);
-  if (error) throw new Error(error.message);
+  if (error) throw sanitizeDbError(error, "budgets");
 
   const totals = new Map<string, number>();
   for (const r of rows ?? []) {
@@ -165,7 +166,7 @@ export async function applyBudgetSuggestions(input: unknown) {
   const { error } = await supabase
     .from("budgets")
     .upsert(rows, { onConflict: "user_id,category_id,month" });
-  if (error) throw new Error(error.message);
+  if (error) throw sanitizeDbError(error, "budgets");
   revalidatePath("/budgets");
   revalidatePath("/dashboard");
   return rows.length;
@@ -188,7 +189,7 @@ export async function suggestBudgets(
     .select("id")
     .eq("user_id", user.id)
     .eq("is_archived", false);
-  if (catsErr) throw new Error(catsErr.message);
+  if (catsErr) throw sanitizeDbError(catsErr, "budgets");
   const list = cats ?? [];
   if (list.length === 0 || incomeCents <= 0) return 0;
 
@@ -202,7 +203,7 @@ export async function suggestBudgets(
   const { error } = await supabase
     .from("budgets")
     .upsert(rows, { onConflict: "user_id,category_id,month" });
-  if (error) throw new Error(error.message);
+  if (error) throw sanitizeDbError(error, "budgets");
   revalidatePath("/budgets");
   revalidatePath("/dashboard");
   return rows.length;

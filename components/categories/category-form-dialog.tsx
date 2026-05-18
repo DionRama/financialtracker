@@ -56,7 +56,7 @@ export function CategoryFormDialog({
         onOpenChange(false);
         form.reset({ name: "" });
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Something went wrong");
+        (console.error(err), toast.error("Something went wrong"));
       }
     });
   }

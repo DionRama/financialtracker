@@ -129,7 +129,7 @@ export function ExpenseFormDialog({
           tagsText: "",
         });
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Something went wrong");
+        (console.error(err), toast.error("Something went wrong"));
       }
     });
   }

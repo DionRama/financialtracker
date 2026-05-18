@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
+import { sanitizeDbError } from "@/lib/supabase/error";
 import { suggestBudgets } from "@/lib/actions/budgets";
 
 const onboardSchema = z.object({
@@ -29,7 +30,7 @@ export async function completeOnboarding(input: unknown) {
       monthly_income_cents: data.monthly_income_cents || null,
     })
     .eq("id", user.id);
-  if (error) throw new Error(error.message);
+  if (error) throw sanitizeDbError(error, "onboarding");
 
   if (data.suggest_budgets && data.monthly_income_cents > 0) {
     const now = new Date();

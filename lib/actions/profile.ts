@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
+import { sanitizeDbError } from "@/lib/supabase/error";
 import { profileSchema } from "@/lib/validation";
 
 async function requireUser() {
@@ -34,13 +35,13 @@ export async function updateProfile(input: unknown) {
     .from("profiles")
     .update(update)
     .eq("id", user.id);
-  if (error) throw new Error(error.message);
+  if (error) throw sanitizeDbError(error, "profile");
   revalidatePath("/", "layout");
 }
 
 export async function deleteAllUserData() {
   const { supabase } = await requireUser();
   const { error } = await supabase.rpc("delete_all_user_data");
-  if (error) throw new Error(error.message);
+  if (error) throw sanitizeDbError(error, "profile");
   revalidatePath("/", "layout");
 }

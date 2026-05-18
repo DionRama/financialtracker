@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
+import { sanitizeDbError } from "@/lib/supabase/error";
 import { expenseSchema, importRowsSchema, type ImportRow } from "@/lib/validation";
 
 async function requireUser() {
@@ -26,7 +27,7 @@ export async function createExpense(input: unknown) {
     note: data.note ?? null,
     tags: data.tags,
   });
-  if (error) throw new Error(error.message);
+  if (error) throw sanitizeDbError(error, "expenses");
   revalidatePath("/expenses");
   revalidatePath("/dashboard");
   revalidatePath("/budgets");
@@ -37,7 +38,7 @@ const updateSchema = expenseSchema.extend({ id: z.string().uuid() });
 
 export async function updateExpense(input: unknown) {
   const data = updateSchema.parse(input);
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
   const { error } = await supabase
     .from("expenses")
     .update({
@@ -47,8 +48,8 @@ export async function updateExpense(input: unknown) {
       note: data.note ?? null,
       tags: data.tags,
     })
-    .eq("id", data.id);
-  if (error) throw new Error(error.message);
+    .eq("id", data.id).eq("user_id", user.id);
+  if (error) throw sanitizeDbError(error, "expenses");
   revalidatePath("/expenses");
   revalidatePath("/dashboard");
   revalidatePath("/budgets");
@@ -65,7 +66,7 @@ export async function importExpenses(
     .from("categories")
     .select("id, name")
     .eq("user_id", user.id);
-  if (catErr) throw new Error(catErr.message);
+  if (catErr) throw sanitizeDbError(catErr, "expenses");
 
   const catByName = new Map<string, string>();
   for (const c of categories ?? []) {
@@ -90,7 +91,7 @@ export async function importExpenses(
   const { error, count } = await supabase
     .from("expenses")
     .insert(payload, { count: "exact" });
-  if (error) throw new Error(error.message);
+  if (error) throw sanitizeDbError(error, "expenses");
 
   const inserted = count ?? payload.length;
   revalidatePath("/expenses");
@@ -101,9 +102,9 @@ export async function importExpenses(
 
 export async function deleteExpense(id: string) {
   z.string().uuid().parse(id);
-  const { supabase } = await requireUser();
-  const { error } = await supabase.from("expenses").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  const { supabase, user } = await requireUser();
+  const { error } = await supabase.from("expenses").delete().eq("id", id).eq("user_id", user.id);
+  if (error) throw sanitizeDbError(error, "expenses");
   revalidatePath("/expenses");
   revalidatePath("/dashboard");
   revalidatePath("/budgets");

@@ -262,7 +262,7 @@ export function CsvImport({ open, onOpenChange }: CsvImportProps) {
         onOpenChange(false);
         setTimeout(reset, 200);
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Import failed");
+        (console.error(err), toast.error("Import failed"));
       }
     });
   }

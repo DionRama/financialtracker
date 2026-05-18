@@ -326,7 +326,7 @@ export function ExpensesView({
               }
               setDeleting(null);
             } catch (err) {
-              toast.error(err instanceof Error ? err.message : "Failed");
+              (console.error(err), toast.error("Failed"));
             }
           });
         }}

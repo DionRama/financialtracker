@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
+import { sanitizeDbError } from "@/lib/supabase/error";
 import { incomeEntrySchema, incomeSourceSchema } from "@/lib/validation";
 
 async function requireUser() {
@@ -34,7 +35,7 @@ export async function addIncomeSource(input: unknown) {
     currency: data.currency,
     is_active: data.is_active,
   });
-  if (error) throw new Error(error.message);
+  if (error) throw sanitizeDbError(error, "income");
   revalidateIncome();
   revalidatePath("/settings");
 }
@@ -43,7 +44,7 @@ const sourceUpdateSchema = incomeSourceSchema.extend({ id: z.string().uuid() });
 
 export async function updateIncomeSource(id: string, input: unknown) {
   const data = sourceUpdateSchema.parse({ ...(input as object), id });
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
   const { error } = await supabase
     .from("income_sources")
     .update({
@@ -53,20 +54,20 @@ export async function updateIncomeSource(id: string, input: unknown) {
       currency: data.currency,
       is_active: data.is_active,
     })
-    .eq("id", data.id);
-  if (error) throw new Error(error.message);
+    .eq("id", data.id).eq("user_id", user.id);
+  if (error) throw sanitizeDbError(error, "income");
   revalidateIncome();
   revalidatePath("/settings");
 }
 
 export async function archiveIncomeSource(id: string) {
   z.string().uuid().parse(id);
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
   const { error } = await supabase
     .from("income_sources")
     .update({ is_active: false })
-    .eq("id", id);
-  if (error) throw new Error(error.message);
+    .eq("id", id).eq("user_id", user.id);
+  if (error) throw sanitizeDbError(error, "income");
   revalidateIncome();
   revalidatePath("/settings");
 }
@@ -84,7 +85,7 @@ export async function addIncomeEntry(input: unknown) {
     received_at: data.received_at,
     note: data.note ?? null,
   });
-  if (error) throw new Error(error.message);
+  if (error) throw sanitizeDbError(error, "income");
   revalidateIncome();
 }
 
@@ -92,7 +93,7 @@ const entryUpdateSchema = incomeEntrySchema.extend({ id: z.string().uuid() });
 
 export async function updateIncomeEntry(id: string, input: unknown) {
   const data = entryUpdateSchema.parse({ ...(input as object), id });
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
   const { error } = await supabase
     .from("income_entries")
     .update({
@@ -101,18 +102,18 @@ export async function updateIncomeEntry(id: string, input: unknown) {
       received_at: data.received_at,
       note: data.note ?? null,
     })
-    .eq("id", data.id);
-  if (error) throw new Error(error.message);
+    .eq("id", data.id).eq("user_id", user.id);
+  if (error) throw sanitizeDbError(error, "income");
   revalidateIncome();
 }
 
 export async function deleteIncomeEntry(id: string) {
   z.string().uuid().parse(id);
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
   const { error } = await supabase
     .from("income_entries")
     .delete()
-    .eq("id", id);
-  if (error) throw new Error(error.message);
+    .eq("id", id).eq("user_id", user.id);
+  if (error) throw sanitizeDbError(error, "income");
   revalidateIncome();
 }

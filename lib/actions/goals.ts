@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
+import { sanitizeDbError } from "@/lib/supabase/error";
 import {
   goalContributionSchema,
   goalMoveSchema,
@@ -36,7 +37,7 @@ export async function createGoal(input: unknown) {
     emoji: data.emoji ?? null,
     is_archived: data.is_archived,
   });
-  if (error) throw new Error(error.message);
+  if (error) throw sanitizeDbError(error, "goals");
   revalidateGoals();
 }
 
@@ -44,7 +45,7 @@ const updateSchema = savingsGoalSchema.extend({ id: z.string().uuid() });
 
 export async function updateGoal(id: string, input: unknown) {
   const data = updateSchema.parse({ ...(input as object), id });
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
   const { error } = await supabase
     .from("savings_goals")
     .update({
@@ -55,27 +56,27 @@ export async function updateGoal(id: string, input: unknown) {
       emoji: data.emoji ?? null,
       is_archived: data.is_archived,
     })
-    .eq("id", data.id);
-  if (error) throw new Error(error.message);
+    .eq("id", data.id).eq("user_id", user.id);
+  if (error) throw sanitizeDbError(error, "goals");
   revalidateGoals();
 }
 
 export async function archiveGoal(id: string) {
   z.string().uuid().parse(id);
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
   const { error } = await supabase
     .from("savings_goals")
     .update({ is_archived: true })
-    .eq("id", id);
-  if (error) throw new Error(error.message);
+    .eq("id", id).eq("user_id", user.id);
+  if (error) throw sanitizeDbError(error, "goals");
   revalidateGoals();
 }
 
 export async function deleteGoal(id: string) {
   z.string().uuid().parse(id);
-  const { supabase } = await requireUser();
-  const { error } = await supabase.from("savings_goals").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  const { supabase, user } = await requireUser();
+  const { error } = await supabase.from("savings_goals").delete().eq("id", id).eq("user_id", user.id);
+  if (error) throw sanitizeDbError(error, "goals");
   revalidateGoals();
 }
 
@@ -98,7 +99,7 @@ export async function contributeToGoal(
       p_note: data.note ?? null,
     },
   );
-  if (rpcErr) throw new Error(rpcErr.message);
+  if (rpcErr) throw sanitizeDbError(rpcErr, "goals");
 
   // Grab the row we just inserted to return its id for undo.
   const { data: row, error: selErr } = await supabase
@@ -109,7 +110,7 @@ export async function contributeToGoal(
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (selErr) throw new Error(selErr.message);
+  if (selErr) throw sanitizeDbError(selErr, "goals");
 
   revalidateGoals();
   return {
@@ -120,21 +121,21 @@ export async function contributeToGoal(
 
 export async function moveBetweenGoals(input: unknown) {
   const data = goalMoveSchema.parse(input);
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
   const { error } = await supabase.rpc("move_between_goals", {
     p_from: data.from_id,
     p_to: data.to_id,
     p_amount_cents: data.amount_cents,
     p_note: data.note ?? null,
   });
-  if (error) throw new Error(error.message);
+  if (error) throw sanitizeDbError(error, "goals");
   revalidateGoals();
 }
 
 export async function deleteContribution(id: string) {
   z.string().uuid().parse(id);
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
   const { error } = await supabase.rpc("delete_contribution", { p_id: id });
-  if (error) throw new Error(error.message);
+  if (error) throw sanitizeDbError(error, "goals");
   revalidateGoals();
 }

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
+import { sanitizeDbError } from "@/lib/supabase/error";
 import { recurringRuleSchema } from "@/lib/validation";
 
 async function requireUser() {
@@ -44,7 +45,7 @@ export async function createRecurring(input: unknown) {
     is_subscription: data.is_subscription,
     vendor: data.vendor ?? null,
   });
-  if (error) throw new Error(error.message);
+  if (error) throw sanitizeDbError(error, "recurring");
   try {
     await supabase.rpc("materialize_recurring");
   } catch {
@@ -58,7 +59,7 @@ const updateSchema = recurringRuleSchema.and(z.object({ id: z.string().uuid() })
 export async function updateRecurring(id: string, input: unknown) {
   const merged = { ...(input as object), id };
   const data = updateSchema.parse(merged);
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
   const { error } = await supabase
     .from("recurring_rules")
     .update({
@@ -79,8 +80,8 @@ export async function updateRecurring(id: string, input: unknown) {
       is_subscription: data.is_subscription,
       vendor: data.vendor ?? null,
     })
-    .eq("id", data.id);
-  if (error) throw new Error(error.message);
+    .eq("id", data.id).eq("user_id", user.id);
+  if (error) throw sanitizeDbError(error, "recurring");
   try {
     await supabase.rpc("materialize_recurring");
   } catch {
@@ -91,18 +92,18 @@ export async function updateRecurring(id: string, input: unknown) {
 
 export async function togglePauseRecurring(id: string, paused: boolean) {
   z.string().uuid().parse(id);
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
   const { error } = await supabase
     .from("recurring_rules")
     .update({ is_paused: paused })
-    .eq("id", id);
-  if (error) throw new Error(error.message);
+    .eq("id", id).eq("user_id", user.id);
+  if (error) throw sanitizeDbError(error, "recurring");
   revalidateRecurring();
 }
 
 export async function deleteRecurring(id: string) {
   z.string().uuid().parse(id);
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
 
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
@@ -129,8 +130,8 @@ export async function deleteRecurring(id: string) {
   const { error } = await supabase
     .from("recurring_rules")
     .delete()
-    .eq("id", id);
-  if (error) throw new Error(error.message);
+    .eq("id", id).eq("user_id", user.id);
+  if (error) throw sanitizeDbError(error, "recurring");
   revalidateRecurring();
 }
 
@@ -165,22 +166,22 @@ export async function skipRecurringThisMonth(
 ) {
   z.string().uuid().parse(ruleId);
   z.string().uuid().parse(expenseId);
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
 
   const { data: rule, error: ruleErr } = await supabase
     .from("recurring_rules")
     .select("id, cadence, interval_count, next_run_date, kind")
-    .eq("id", ruleId)
+    .eq("id", ruleId).eq("user_id", user.id)
     .single();
-  if (ruleErr) throw new Error(ruleErr.message);
+  if (ruleErr) throw sanitizeDbError(ruleErr, "recurring");
   if (!rule) throw new Error("Recurring rule not found");
 
   const table = rule.kind === "income" ? "income_entries" : "expenses";
   const { error: delErr } = await supabase
     .from(table)
     .delete()
-    .eq("id", expenseId);
-  if (delErr) throw new Error(delErr.message);
+    .eq("id", expenseId).eq("user_id", user.id);
+  if (delErr) throw sanitizeDbError(delErr, "recurring");
 
   const base = new Date(rule.next_run_date);
   const advanced = addCycle(base, rule.cadence, rule.interval_count ?? 1);
@@ -189,27 +190,27 @@ export async function skipRecurringThisMonth(
   const { error: updErr } = await supabase
     .from("recurring_rules")
     .update({ next_run_date: advancedYmd })
-    .eq("id", ruleId);
-  if (updErr) throw new Error(updErr.message);
+    .eq("id", ruleId).eq("user_id", user.id);
+  if (updErr) throw sanitizeDbError(updErr, "recurring");
 
   revalidateRecurring();
 }
 
 export async function deleteRecurringExpenseEntry(expenseId: string) {
   z.string().uuid().parse(expenseId);
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
   const { error } = await supabase
     .from("expenses")
     .delete()
-    .eq("id", expenseId);
-  if (error) throw new Error(error.message);
+    .eq("id", expenseId).eq("user_id", user.id);
+  if (error) throw sanitizeDbError(error, "recurring");
   revalidateRecurring();
 }
 
 export async function runRecurringNow() {
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
   const { data, error } = await supabase.rpc("materialize_recurring");
-  if (error) throw new Error(error.message);
+  if (error) throw sanitizeDbError(error, "recurring");
   revalidateRecurring();
   return data ?? 0;
 }

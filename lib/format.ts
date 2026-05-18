@@ -36,6 +36,7 @@ export function parseAmountToCents(input: string): number | null {
   if (parts.length > 2) return null;
   const num = Number(cleaned);
   if (!Number.isFinite(num)) return null;
+  if (num <= 0) return null;
   return Math.round(num * 100);
 }
 
