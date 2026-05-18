@@ -3,7 +3,11 @@
 import * as React from "react";
 import { DayPicker, type Locale } from "react-day-picker";
 import { format, parse, isValid } from "date-fns";
-import { Calendar as CalendarIcon } from "lucide-react";
+import {
+  Calendar as CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 
 import "react-day-picker/style.css";
 
@@ -29,6 +33,38 @@ function parseIso(value: string | undefined): Date | undefined {
   if (!value) return undefined;
   const d = parse(value, "yyyy-MM-dd", new Date());
   return isValid(d) ? d : undefined;
+}
+
+type NavButtonProps = React.ComponentProps<"button">;
+
+function PrevMonthButton(props: NavButtonProps) {
+  const { className, children: _children, ...rest } = props;
+  return (
+    <Button
+      type="button"
+      size="icon"
+      variant="ghost"
+      className={cn("h-7 w-7", className)}
+      {...rest}
+    >
+      <ChevronLeft className="h-4 w-4" />
+    </Button>
+  );
+}
+
+function NextMonthButton(props: NavButtonProps) {
+  const { className, children: _children, ...rest } = props;
+  return (
+    <Button
+      type="button"
+      size="icon"
+      variant="ghost"
+      className={cn("h-7 w-7", className)}
+      {...rest}
+    >
+      <ChevronRight className="h-4 w-4" />
+    </Button>
+  );
 }
 
 export function DatePicker({
@@ -74,6 +110,10 @@ export function DatePicker({
           locale={locale}
           showOutsideDays
           className="p-3"
+          components={{
+            PreviousMonthButton: PrevMonthButton,
+            NextMonthButton: NextMonthButton,
+          }}
           classNames={{
             months: "flex flex-col sm:flex-row gap-4",
             month: "space-y-4",
@@ -81,12 +121,6 @@ export function DatePicker({
               "flex items-center justify-between gap-2 px-1 pt-1",
             caption_label: "text-sm font-medium",
             nav: "flex items-center gap-1",
-            button_previous: cn(
-              "inline-flex h-8 w-8 items-center justify-center rounded-md border border-input bg-transparent p-0 opacity-70 hover:bg-accent hover:text-accent-foreground hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            ),
-            button_next: cn(
-              "inline-flex h-8 w-8 items-center justify-center rounded-md border border-input bg-transparent p-0 opacity-70 hover:bg-accent hover:text-accent-foreground hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            ),
             month_grid: "w-full border-collapse space-y-1",
             weekdays: "flex",
             weekday:
