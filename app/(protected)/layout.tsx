@@ -17,6 +17,15 @@ export default async function ProtectedLayout({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  // Best-effort: materialize any past-due recurring rules so newly authenticated
+  // page loads are self-healing. Errors are swallowed — a transient DB hiccup
+  // must not block rendering.
+  try {
+    await supabase.rpc("materialize_recurring");
+  } catch {
+    // intentionally ignored
+  }
+
   const h = await headers();
   const pathname = h.get("x-pathname") ?? "";
 
