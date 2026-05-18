@@ -24,7 +24,7 @@ export default async function OnboardingPage() {
       .select("id", { count: "exact", head: true }),
   ]);
 
-  if (profile?.monthly_income_cents != null || (expensesCount ?? 0) > 0) {
+  if ((profile?.monthly_income_cents ?? 0) > 0 || (expensesCount ?? 0) > 0) {
     redirect("/dashboard");
   }
 

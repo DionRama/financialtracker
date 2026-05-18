@@ -45,13 +45,13 @@ export async function signUpWithPassword(
   const { error, data } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
-    options: { emailRedirectTo: `${siteUrl()}/auth/callback?next=/dashboard` },
+    options: { emailRedirectTo: `${siteUrl()}/auth/callback?next=/onboarding` },
   });
   if (error) return { error: error.message };
 
   if (data.session) {
     revalidatePath("/", "layout");
-    redirect("/dashboard");
+    redirect("/onboarding");
   }
   return {
     success:

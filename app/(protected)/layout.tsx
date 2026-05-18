@@ -41,7 +41,7 @@ export default async function ProtectedLayout({
   ]);
 
   const needsOnboarding =
-    (profile?.monthly_income_cents ?? null) === null &&
+    (profile?.monthly_income_cents ?? 0) === 0 &&
     (expensesCount ?? 0) === 0;
 
   if (needsOnboarding && !pathname.includes("/onboarding")) {
