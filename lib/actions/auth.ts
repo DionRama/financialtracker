@@ -4,7 +4,11 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
-import { authPasswordSchema, authMagicLinkSchema } from "@/lib/validation";
+import {
+  authPasswordSchema,
+  authMagicLinkSchema,
+  authSignupSchema,
+} from "@/lib/validation";
 
 export type ActionResult = { error?: string; success?: string };
 
@@ -34,22 +38,36 @@ export async function signUpWithPassword(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const parsed = authPasswordSchema.safeParse({
+  const parsed = authSignupSchema.safeParse({
+    full_name: formData.get("full_name"),
     email: formData.get("email"),
     password: formData.get("password"),
   });
-  if (!parsed.success)
+  if (!parsed.success) {
+    const firstIssue = parsed.error.issues[0];
+    if (firstIssue?.path[0] === "full_name")
+      return { error: "Please enter your full name." };
+    if (firstIssue?.path[0] === "email")
+      return { error: "Please enter a valid email." };
     return { error: "Password must be at least 8 characters." };
+  }
 
   const supabase = await createClient();
   const { error, data } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
-    options: { emailRedirectTo: `${siteUrl()}/auth/callback?next=/onboarding` },
+    options: {
+      emailRedirectTo: `${siteUrl()}/auth/callback?next=/onboarding`,
+      data: { full_name: parsed.data.full_name },
+    },
   });
   if (error) return { error: error.message };
 
-  if (data.session) {
+  if (data.session && data.user) {
+    await supabase
+      .from("profiles")
+      .update({ full_name: parsed.data.full_name })
+      .eq("id", data.user.id);
     revalidatePath("/", "layout");
     redirect("/onboarding");
   }

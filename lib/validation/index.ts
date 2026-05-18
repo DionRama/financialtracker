@@ -155,6 +155,12 @@ export const authPasswordSchema = z.object({
   password: z.string().min(8).max(72),
 });
 
+export const authSignupSchema = z.object({
+  full_name: z.string().trim().min(1).max(120),
+  email: z.string().email(),
+  password: z.string().min(8).max(72),
+});
+
 export const authMagicLinkSchema = z.object({
   email: z.string().email(),
 });
