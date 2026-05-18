@@ -24,7 +24,7 @@ export function MobileNav() {
   return (
     <nav
       aria-label="Primary"
-      className="sticky bottom-0 z-30 flex h-16 items-center justify-around border-t bg-card/95 px-2 backdrop-blur md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-center justify-around border-t bg-card/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
     >
       {MOBILE_NAV.map((item) => {
         const active =

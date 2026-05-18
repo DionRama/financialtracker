@@ -53,7 +53,7 @@ export default async function ProtectedLayout({
       <Sidebar />
       <div className="flex min-h-screen flex-1 flex-col">
         <Topbar email={user.email ?? ""} fullName={profile?.full_name ?? null} />
-        <main className="flex-1 px-5 py-6 sm:px-6 sm:py-8">{children}</main>
+        <main className="flex-1 px-5 py-6 pb-24 sm:px-6 sm:py-8 md:pb-8">{children}</main>
         <MobileNav />
       </div>
     </div>
