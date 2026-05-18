@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/common/page-header";
 import { OnboardingForm } from "@/components/onboarding/onboarding-form";
 
 export const metadata = { title: "Welcome" };
+export const dynamic = "force-dynamic";
 
 export default async function OnboardingPage() {
   const supabase = await createClient();

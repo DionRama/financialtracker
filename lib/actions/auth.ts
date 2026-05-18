@@ -64,11 +64,17 @@ export async function signUpWithPassword(
   if (error) return { error: error.message };
 
   if (data.session && data.user) {
+    // Upsert (not update) — the DB trigger may not have created the profile
+    // row yet on the very first signup. Upsert is idempotent and safe.
     await supabase
       .from("profiles")
-      .update({ full_name: parsed.data.full_name })
-      .eq("id", data.user.id);
+      .upsert(
+        { id: data.user.id, full_name: parsed.data.full_name },
+        { onConflict: "id" },
+      );
     revalidatePath("/", "layout");
+    revalidatePath("/onboarding");
+    revalidatePath("/dashboard");
     redirect("/onboarding");
   }
   return {

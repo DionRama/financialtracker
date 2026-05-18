@@ -75,6 +75,26 @@ export default async function DashboardPage({ searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  // Onboarding gate: send brand-new users to /onboarding once. Anyone with
+  // monthly income set OR at least one recorded expense is considered onboarded.
+  const [{ data: onboardingProfile }, { count: onboardingExpenses }] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("monthly_income_cents")
+        .eq("id", user.id)
+        .maybeSingle(),
+      supabase
+        .from("expenses")
+        .select("id", { count: "exact", head: true }),
+    ]);
+  if (
+    (onboardingProfile?.monthly_income_cents ?? 0) === 0 &&
+    (onboardingExpenses ?? 0) === 0
+  ) {
+    redirect("/onboarding");
+  }
+
   const { isoMonth, startDate, endDate } = monthBounds(month);
   const prevIsoMonth = previousMonth(isoMonth);
   const prevBounds = monthBounds(prevIsoMonth.slice(0, 7));

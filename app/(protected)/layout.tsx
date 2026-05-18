@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
 
 import { createClient } from "@/lib/supabase/server";
 import { Sidebar } from "@/components/shell/sidebar";
@@ -26,27 +25,11 @@ export default async function ProtectedLayout({
     // intentionally ignored
   }
 
-  const h = await headers();
-  const pathname = h.get("x-pathname") ?? "";
-
-  const [{ data: profile }, { count: expensesCount }] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("full_name, monthly_income_cents")
-      .eq("id", user.id)
-      .maybeSingle(),
-    supabase
-      .from("expenses")
-      .select("id", { count: "exact", head: true }),
-  ]);
-
-  const needsOnboarding =
-    (profile?.monthly_income_cents ?? 0) === 0 &&
-    (expensesCount ?? 0) === 0;
-
-  if (needsOnboarding && !pathname.includes("/onboarding")) {
-    redirect("/onboarding");
-  }
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", user.id)
+    .maybeSingle();
 
   return (
     <div className="flex min-h-screen">
