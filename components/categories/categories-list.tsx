@@ -14,6 +14,7 @@ import {
 } from "@/lib/actions/categories";
 
 import { CategoryFormDialog } from "./category-form-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export interface CategoryRow {
   id: string;
@@ -30,6 +31,7 @@ export function CategoriesList({ categories }: CategoriesListProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<CategoryRow | null>(null);
   const [pending, startTransition] = useTransition();
+  const [deleting, setDeleting] = useState<CategoryRow | null>(null);
 
   if (categories.length === 0) {
     return (
@@ -136,24 +138,7 @@ export function CategoriesList({ categories }: CategoriesListProps) {
                   variant="ghost"
                   aria-label="Delete"
                   disabled={pending}
-                  onClick={() => {
-                    if (
-                      !window.confirm(
-                        `Delete "${c.name}"? Expenses keep their amounts but lose this category.`,
-                      )
-                    )
-                      return;
-                    startTransition(async () => {
-                      try {
-                        await deleteCategory(c.id);
-                        toast.success("Category deleted");
-                      } catch (e) {
-                        toast.error(
-                          e instanceof Error ? e.message : "Failed",
-                        );
-                      }
-                    });
-                  }}
+                  onClick={() => setDeleting(c)}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -170,6 +155,29 @@ export function CategoriesList({ categories }: CategoriesListProps) {
           if (!o) setEditing(null);
         }}
         initial={editing}
+      />
+
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(o) => {
+          if (!o) setDeleting(null);
+        }}
+        title={deleting ? `Delete "${deleting.name}"?` : "Delete category?"}
+        description="Expenses keep their amounts but lose this category. This cannot be undone."
+        pending={pending}
+        onConfirm={() => {
+          const target = deleting;
+          if (!target) return;
+          startTransition(async () => {
+            try {
+              await deleteCategory(target.id);
+              toast.success("Category deleted");
+              setDeleting(null);
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Failed");
+            }
+          });
+        }}
       />
     </>
   );

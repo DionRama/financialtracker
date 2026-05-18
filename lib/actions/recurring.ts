@@ -45,6 +45,11 @@ export async function createRecurring(input: unknown) {
     vendor: data.vendor ?? null,
   });
   if (error) throw new Error(error.message);
+  try {
+    await supabase.rpc("materialize_recurring");
+  } catch {
+    // best-effort: don't undo the create if backfill hiccups
+  }
   revalidateRecurring();
 }
 
@@ -76,6 +81,11 @@ export async function updateRecurring(id: string, input: unknown) {
     })
     .eq("id", data.id);
   if (error) throw new Error(error.message);
+  try {
+    await supabase.rpc("materialize_recurring");
+  } catch {
+    // best-effort: don't undo the update if backfill hiccups
+  }
   revalidateRecurring();
 }
 
@@ -93,10 +103,105 @@ export async function togglePauseRecurring(id: string, paused: boolean) {
 export async function deleteRecurring(id: string) {
   z.string().uuid().parse(id);
   const { supabase } = await requireUser();
+
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    .toISOString()
+    .slice(0, 10);
+  const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    .toISOString()
+    .slice(0, 10);
+
+  // Best-effort: remove this month's materialized entries before deleting the rule.
+  await supabase
+    .from("expenses")
+    .delete()
+    .eq("recurring_id", id)
+    .gte("occurred_at", monthStart)
+    .lt("occurred_at", nextMonthStart);
+  await supabase
+    .from("income_entries")
+    .delete()
+    .eq("recurring_id", id)
+    .gte("received_at", monthStart)
+    .lt("received_at", nextMonthStart);
+
   const { error } = await supabase
     .from("recurring_rules")
     .delete()
     .eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidateRecurring();
+}
+
+function addCycle(date: Date, cadence: string, intervalCount: number): Date {
+  const n = Math.max(1, intervalCount || 1);
+  const d = new Date(date);
+  switch (cadence) {
+    case "daily":
+      d.setDate(d.getDate() + n);
+      break;
+    case "weekly":
+      d.setDate(d.getDate() + 7 * n);
+      break;
+    case "biweekly":
+      d.setDate(d.getDate() + 14 * n);
+      break;
+    case "monthly":
+      d.setMonth(d.getMonth() + n);
+      break;
+    case "yearly":
+      d.setFullYear(d.getFullYear() + n);
+      break;
+    default:
+      d.setMonth(d.getMonth() + n);
+  }
+  return d;
+}
+
+export async function skipRecurringThisMonth(
+  ruleId: string,
+  expenseId: string,
+) {
+  z.string().uuid().parse(ruleId);
+  z.string().uuid().parse(expenseId);
+  const { supabase } = await requireUser();
+
+  const { data: rule, error: ruleErr } = await supabase
+    .from("recurring_rules")
+    .select("id, cadence, interval_count, next_run_date, kind")
+    .eq("id", ruleId)
+    .single();
+  if (ruleErr) throw new Error(ruleErr.message);
+  if (!rule) throw new Error("Recurring rule not found");
+
+  const table = rule.kind === "income" ? "income_entries" : "expenses";
+  const { error: delErr } = await supabase
+    .from(table)
+    .delete()
+    .eq("id", expenseId);
+  if (delErr) throw new Error(delErr.message);
+
+  const base = new Date(rule.next_run_date);
+  const advanced = addCycle(base, rule.cadence, rule.interval_count ?? 1);
+  const advancedYmd = advanced.toISOString().slice(0, 10);
+
+  const { error: updErr } = await supabase
+    .from("recurring_rules")
+    .update({ next_run_date: advancedYmd })
+    .eq("id", ruleId);
+  if (updErr) throw new Error(updErr.message);
+
+  revalidateRecurring();
+}
+
+export async function deleteRecurringExpenseEntry(expenseId: string) {
+  z.string().uuid().parse(expenseId);
+  const { supabase } = await requireUser();
+  const { error } = await supabase
+    .from("expenses")
+    .delete()
+    .eq("id", expenseId);
   if (error) throw new Error(error.message);
   revalidateRecurring();
 }

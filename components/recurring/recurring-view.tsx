@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import {
   Pause,
   Pencil,
   Play,
   Plus,
-  RefreshCw,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -35,12 +35,12 @@ import {
 } from "@/components/ui/select";
 import { MoneyInput } from "@/components/ui/money-input";
 import { DatePicker } from "@/components/ui/date-picker";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/common/empty-state";
 import { formatCurrency, todayIsoDate } from "@/lib/format";
 import {
   createRecurring,
   deleteRecurring,
-  runRecurringNow,
   togglePauseRecurring,
   updateRecurring,
 } from "@/lib/actions/recurring";
@@ -81,6 +81,12 @@ interface Props {
   sources: Source[];
   currency: string;
   locale: string;
+  lastEntries: Record<string, LastEntryInfo>;
+}
+
+export interface LastEntryInfo {
+  lastDate: string;
+  count: number;
 }
 
 function monthlyEquivalent(r: RecurringRow): number {
@@ -103,10 +109,23 @@ export function RecurringView({
   sources,
   currency,
   locale,
+  lastEntries,
 }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [edit, setEdit] = useState<RecurringRow | null>(null);
-  const [pending, startTransition] = useTransition();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  useEffect(() => {
+    const id = searchParams.get("edit");
+    if (!id) return;
+    const target = rules.find((r) => r.id === id);
+    if (target) {
+      setEdit(target);
+      setDialogOpen(true);
+      router.replace("/recurring", { scroll: false });
+    }
+  }, [searchParams, rules, router]);
 
   const subs = rules.filter((r) => r.is_subscription);
   const others = rules.filter((r) => !r.is_subscription);
@@ -116,23 +135,9 @@ export function RecurringView({
     setDialogOpen(true);
   }
 
-  function runNow() {
-    startTransition(async () => {
-      try {
-        const n = await runRecurringNow();
-        toast.success(n ? `Generated ${n} transactions` : "Nothing due");
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Failed");
-      }
-    });
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={runNow} disabled={pending}>
-          <RefreshCw className="mr-1 h-4 w-4" /> Run now
-        </Button>
         <Button onClick={openNew}>
           <Plus className="mr-1 h-4 w-4" /> New recurring
         </Button>
@@ -152,6 +157,7 @@ export function RecurringView({
             rules={subs}
             currency={currency}
             locale={locale}
+            lastEntries={lastEntries}
             onNew={openNew}
             emptyTitle="No subscriptions tracked"
             emptyDescription="Track subscriptions and recurring bills to see what you spend each month."
@@ -166,6 +172,7 @@ export function RecurringView({
             rules={others}
             currency={currency}
             locale={locale}
+            lastEntries={lastEntries}
             onNew={openNew}
             emptyTitle="Nothing scheduled"
             emptyDescription="Add recurring bills or expected income to automate entries."
@@ -194,6 +201,7 @@ function RuleList({
   rules,
   currency,
   locale,
+  lastEntries,
   onEdit,
   onNew,
   emptyTitle,
@@ -202,12 +210,14 @@ function RuleList({
   rules: RecurringRow[];
   currency: string;
   locale: string;
+  lastEntries: Record<string, LastEntryInfo>;
   onEdit: (r: RecurringRow) => void;
   onNew: () => void;
   emptyTitle: string;
   emptyDescription: string;
 }) {
   const [pending, startTransition] = useTransition();
+  const [deleting, setDeleting] = useState<RecurringRow | null>(null);
 
   function toggle(id: string, paused: boolean) {
     startTransition(async () => {
@@ -219,11 +229,14 @@ function RuleList({
       }
     });
   }
-  function remove(id: string) {
+  function remove() {
+    const target = deleting;
+    if (!target) return;
     startTransition(async () => {
       try {
-        await deleteRecurring(id);
+        await deleteRecurring(target.id);
         toast.success("Deleted");
+        setDeleting(null);
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Failed");
       }
@@ -282,6 +295,53 @@ function RuleList({
                 year: "numeric",
               })}
             </p>
+            {(() => {
+              const last = lastEntries[r.id];
+              if (last) {
+                return (
+                  <p className="text-xs text-muted-foreground">
+                    Last charged:{" "}
+                    {new Date(last.lastDate).toLocaleDateString(locale, {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}{" "}
+                    ({last.count} total)
+                  </p>
+                );
+              }
+              if (r.is_paused) return null;
+              const today = new Date().toISOString().slice(0, 10);
+              if (r.end_date && r.end_date < today) {
+                return (
+                  <p className="text-xs text-muted-foreground">
+                    Ended on{" "}
+                    {new Date(r.end_date).toLocaleDateString(locale, {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </p>
+                );
+              }
+              if (r.next_run_date > today) {
+                return (
+                  <p className="text-xs text-muted-foreground">
+                    Waiting for first run on{" "}
+                    {new Date(r.next_run_date).toLocaleDateString(locale, {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </p>
+                );
+              }
+              return (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  No transactions yet
+                </p>
+              );
+            })()}
             <div className="flex justify-end gap-1">
               <Button
                 variant="outline"
@@ -312,7 +372,7 @@ function RuleList({
                 size="icon"
                 aria-label="Delete"
                 disabled={pending}
-                onClick={() => remove(r.id)}
+                onClick={() => setDeleting(r)}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -320,6 +380,21 @@ function RuleList({
           </CardContent>
         </Card>
       ))}
+
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(o) => {
+          if (!o) setDeleting(null);
+        }}
+        title={
+          deleting
+            ? `Delete "${deleting.vendor || deleting.description || "recurring rule"}"?`
+            : "Delete recurring rule?"
+        }
+        description="The rule will stop generating future transactions, and this month's already-recorded entry (if any) will also be removed. Past entries from previous months are kept."
+        pending={pending}
+        onConfirm={remove}
+      />
     </div>
   );
 }
@@ -372,10 +447,32 @@ function RecurringDialog({
   }, [open, initial, form, today]);
 
   function onSubmit(v: RecForm) {
+    let hasError = false;
     if (!v.amount_cents || v.amount_cents <= 0) {
       form.setError("amount_cents", { message: "Enter an amount" });
-      return;
+      hasError = true;
     }
+    const isMonthlyYearly = v.cadence === "monthly" || v.cadence === "yearly";
+    if (isMonthlyYearly && !v.day_of_month) {
+      form.setError("day_of_month", { message: "Pick a day of month" });
+      hasError = true;
+    }
+    if (!isMonthlyYearly && v.weekday === "") {
+      form.setError("weekday", { message: "Pick a weekday" });
+      hasError = true;
+    }
+    if (hasError) return;
+
+    const dayOfMonth = v.day_of_month ? Number(v.day_of_month) : null;
+    const weekday = v.weekday !== "" ? Number(v.weekday) : null;
+    const computedNext = computeFirstRunDate({
+      cadence: v.cadence,
+      startDate: v.start_date,
+      dayOfMonth,
+      weekday,
+    });
+    const startDate = v.start_date || computedNext;
+
     const payload = {
       kind: v.kind,
       category_id: v.kind === "expense" ? v.category_id || null : null,
@@ -385,11 +482,11 @@ function RecurringDialog({
       description: v.description || null,
       cadence: v.cadence,
       interval_count: Number(v.interval_count) || 1,
-      day_of_month: v.day_of_month ? Number(v.day_of_month) : null,
-      weekday: v.weekday !== "" ? Number(v.weekday) : null,
-      start_date: v.start_date,
+      day_of_month: dayOfMonth,
+      weekday,
+      start_date: startDate,
       end_date: null,
-      next_run_date: v.next_run_date || v.start_date,
+      next_run_date: computedNext,
       is_paused: v.is_paused,
       is_subscription: v.is_subscription,
       vendor: v.vendor || null,
@@ -412,6 +509,20 @@ function RecurringDialog({
 
   const kind = form.watch("kind");
   const cadence = form.watch("cadence");
+  const watchedStart = form.watch("start_date");
+  const watchedDom = form.watch("day_of_month");
+  const watchedWeekday = form.watch("weekday");
+
+  const previewNext = computeFirstRunDate({
+    cadence,
+    startDate: watchedStart,
+    dayOfMonth: watchedDom ? Number(watchedDom) : null,
+    weekday: watchedWeekday !== "" ? Number(watchedWeekday) : null,
+  });
+  const previewReady =
+    (cadence === "monthly" || cadence === "yearly")
+      ? Boolean(watchedDom)
+      : watchedWeekday !== "";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -445,7 +556,10 @@ function RecurringDialog({
               <Label>Amount</Label>
               <MoneyInput
                 value={form.watch("amount_cents")}
-                onChange={(c) => form.setValue("amount_cents", c)}
+                onChange={(c) => {
+                  form.setValue("amount_cents", c);
+                  form.clearErrors("amount_cents");
+                }}
                 currency={currency}
                 locale={locale}
               />
@@ -536,47 +650,81 @@ function RecurringDialog({
 
           {(cadence === "monthly" || cadence === "yearly") ? (
             <div className="space-y-2">
-              <Label htmlFor="dom">Day of month (optional)</Label>
+              <Label htmlFor="dom">Day of month</Label>
               <Input
                 id="dom"
                 type="number"
                 min={1}
                 max={31}
-                {...form.register("day_of_month")}
+                placeholder="1–31"
+                {...form.register("day_of_month", {
+                  onChange: () => form.clearErrors("day_of_month"),
+                })}
               />
+              {form.formState.errors.day_of_month ? (
+                <p className="text-xs text-destructive">
+                  {form.formState.errors.day_of_month.message}
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Months with fewer days will use the last day instead.
+                </p>
+              )}
             </div>
           ) : (
             <div className="space-y-2">
-              <Label>Weekday (0=Sun … 6=Sat, optional)</Label>
-              <Input
-                type="number"
-                min={0}
-                max={6}
-                {...form.register("weekday")}
-              />
+              <Label>Weekday</Label>
+              <Select
+                value={form.watch("weekday")}
+                onValueChange={(v) => {
+                  form.setValue("weekday", v);
+                  form.clearErrors("weekday");
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Pick a weekday" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">Monday</SelectItem>
+                  <SelectItem value="2">Tuesday</SelectItem>
+                  <SelectItem value="3">Wednesday</SelectItem>
+                  <SelectItem value="4">Thursday</SelectItem>
+                  <SelectItem value="5">Friday</SelectItem>
+                  <SelectItem value="6">Saturday</SelectItem>
+                  <SelectItem value="0">Sunday</SelectItem>
+                </SelectContent>
+              </Select>
+              {form.formState.errors.weekday ? (
+                <p className="text-xs text-destructive">
+                  {form.formState.errors.weekday.message}
+                </p>
+              ) : null}
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Start date</Label>
-              <DatePicker
-                value={form.watch("start_date")}
-                onChange={(d) => {
-                  form.setValue("start_date", d);
-                  if (!form.getValues("next_run_date") || !isEdit) {
-                    form.setValue("next_run_date", d);
-                  }
-                }}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Next run</Label>
-              <DatePicker
-                value={form.watch("next_run_date")}
-                onChange={(d) => form.setValue("next_run_date", d)}
-              />
-            </div>
+          <div className="space-y-2">
+            <Label>Started on (optional)</Label>
+            <DatePicker
+              value={form.watch("start_date")}
+              onChange={(d) => form.setValue("start_date", d)}
+            />
+            <p className="text-xs text-muted-foreground">
+              When this first started. Past dates will backfill into your transactions.
+            </p>
+          </div>
+
+          <div className="rounded-md border bg-muted/40 p-3">
+            <p className="text-xs text-muted-foreground">Next payment</p>
+            <p className="font-medium font-tabular">
+              {previewReady
+                ? new Date(previewNext).toLocaleDateString(locale, {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })
+                : "—"}
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -630,10 +778,81 @@ function makeDefaults(initial: RecurringRow | null, today: string): RecForm {
     weekday: initial?.weekday !== null && initial?.weekday !== undefined
       ? String(initial.weekday)
       : "",
-    start_date: initial?.start_date ?? today,
+    start_date: initial?.start_date ?? "",
     next_run_date: initial?.next_run_date ?? today,
     is_paused: initial?.is_paused ?? false,
     is_subscription: initial?.is_subscription ?? false,
     vendor: initial?.vendor ?? "",
   };
+}
+
+function computeFirstRunDate(opts: {
+  cadence: RecurringRow["cadence"];
+  startDate: string;
+  dayOfMonth: number | null;
+  weekday: number | null;
+}): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const hasExplicitStart = Boolean(opts.startDate);
+  const anchor = hasExplicitStart
+    ? new Date(`${opts.startDate}T00:00:00`)
+    : today;
+  if (Number.isNaN(anchor.getTime())) return opts.startDate || formatYmd(today);
+
+  if (opts.cadence === "monthly" || opts.cadence === "yearly") {
+    if (opts.dayOfMonth == null) return formatYmd(anchor);
+
+    if (!hasExplicitStart) {
+      const day = clampDayOfMonth(
+        today.getFullYear(),
+        today.getMonth(),
+        opts.dayOfMonth,
+      );
+      return formatYmd(new Date(today.getFullYear(), today.getMonth(), day));
+    }
+
+    let year = anchor.getFullYear();
+    let month = anchor.getMonth();
+    let day = clampDayOfMonth(year, month, opts.dayOfMonth);
+    if (day < anchor.getDate()) {
+      if (opts.cadence === "yearly") {
+        year += 1;
+      } else {
+        month += 1;
+        if (month > 11) {
+          month = 0;
+          year += 1;
+        }
+      }
+      day = clampDayOfMonth(year, month, opts.dayOfMonth);
+    }
+    return formatYmd(new Date(year, month, day));
+  }
+
+  if (opts.weekday == null) return formatYmd(anchor);
+
+  if (!hasExplicitStart) {
+    const backDiff = (today.getDay() - opts.weekday + 7) % 7;
+    const d = new Date(today);
+    d.setDate(today.getDate() - backDiff);
+    return formatYmd(d);
+  }
+
+  const diff = (opts.weekday - anchor.getDay() + 7) % 7;
+  const d = new Date(anchor);
+  d.setDate(anchor.getDate() + diff);
+  return formatYmd(d);
+}
+
+function clampDayOfMonth(year: number, month: number, day: number): number {
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  return Math.min(day, lastDay);
+}
+
+function formatYmd(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }

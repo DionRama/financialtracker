@@ -17,6 +17,7 @@ import {
   IncomeSourceDialog,
   type IncomeSourceValue,
 } from "./income-dialogs";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface Source {
   id: string;
@@ -48,6 +49,7 @@ export function IncomeView({ sources, entries, currency, locale }: Props) {
   const [sourceDialog, setSourceDialog] = useState(false);
   const [editSource, setEditSource] = useState<IncomeSourceValue | null>(null);
   const [pending, startTransition] = useTransition();
+  const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
 
   const sourceById = useMemo(
     () => new Map(sources.map((s) => [s.id, s])),
@@ -172,7 +174,7 @@ export function IncomeView({ sources, entries, currency, locale }: Props) {
                       size="icon"
                       aria-label="Delete"
                       disabled={pending}
-                      onClick={() => removeEntry(e.id)}
+                      onClick={() => setDeletingEntryId(e.id)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -258,6 +260,21 @@ export function IncomeView({ sources, entries, currency, locale }: Props) {
         currency={currency}
         locale={locale}
         initial={editSource}
+      />
+      <ConfirmDialog
+        open={deletingEntryId !== null}
+        onOpenChange={(o) => {
+          if (!o) setDeletingEntryId(null);
+        }}
+        title="Delete income entry?"
+        description="This income transaction will be permanently removed."
+        pending={pending}
+        onConfirm={() => {
+          if (deletingEntryId) {
+            removeEntry(deletingEntryId);
+            setDeletingEntryId(null);
+          }
+        }}
       />
     </div>
   );

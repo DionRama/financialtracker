@@ -35,11 +35,11 @@ export default async function ExpensesPage({ searchParams }: Props) {
   next.setMonth(next.getMonth() + 1);
   const endDate = next.toISOString().slice(0, 10);
 
-  const [{ data: expenses }, { data: categories }, { data: profile }] =
+  const [{ data: expenses }, { data: categories }, { data: profile }, { data: rules }] =
     await Promise.all([
       supabase
         .from("expenses")
-        .select("id, amount_cents, occurred_at, note, tags, category_id")
+        .select("id, amount_cents, occurred_at, note, tags, category_id, recurring_id")
         .gte("occurred_at", startDate)
         .lt("occurred_at", endDate)
         .order("occurred_at", { ascending: false })
@@ -55,9 +55,28 @@ export default async function ExpensesPage({ searchParams }: Props) {
         .select("currency, locale")
         .eq("id", user.id)
         .maybeSingle(),
+      supabase
+        .from("recurring_rules")
+        .select("id, kind, is_subscription, vendor, description, cadence, day_of_month, amount_cents, currency, is_paused"),
     ]);
 
   const rows: ExpenseRow[] = expenses ?? [];
+  const recurringById: Record<
+    string,
+    {
+      id: string;
+      kind: "expense" | "income";
+      is_subscription: boolean;
+      vendor: string | null;
+      description: string | null;
+      cadence: string;
+      day_of_month: number | null;
+      amount_cents: number;
+      currency: string;
+      is_paused: boolean;
+    }
+  > = {};
+  for (const r of rules ?? []) recurringById[r.id] = r;
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -70,6 +89,7 @@ export default async function ExpensesPage({ searchParams }: Props) {
         categories={categories ?? []}
         currency={profile?.currency ?? "USD"}
         locale={profile?.locale ?? "en-US"}
+        recurringById={recurringById}
       />
     </div>
   );

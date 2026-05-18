@@ -109,6 +109,7 @@ export function DatePicker({
           }}
           locale={locale}
           showOutsideDays
+          navLayout="around"
           className="p-3"
           components={{
             PreviousMonthButton: PrevMonthButton,
@@ -117,10 +118,7 @@ export function DatePicker({
           classNames={{
             months: "flex flex-col sm:flex-row gap-4",
             month: "space-y-4",
-            month_caption:
-              "flex items-center justify-between gap-2 px-1 pt-1",
             caption_label: "text-sm font-medium",
-            nav: "flex items-center gap-1",
             month_grid: "w-full border-collapse space-y-1",
             weekdays: "flex",
             weekday:

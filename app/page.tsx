@@ -94,8 +94,7 @@ export default function LandingPage() {
       </section>
 
       <footer className="mx-auto max-w-6xl border-t px-6 py-8 text-sm text-muted-foreground">
-        © {new Date().getFullYear()} Financial Tracker. Built with Next.js
-        and Supabase.
+        © {new Date().getFullYear()} Financial Tracker.
       </footer>
     </main>
   );

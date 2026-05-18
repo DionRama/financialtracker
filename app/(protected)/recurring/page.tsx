@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/common/page-header";
 import {
   RecurringView,
   type RecurringRow,
+  type LastEntryInfo,
 } from "@/components/recurring/recurring-view";
 
 export const metadata = { title: "Recurring" };
@@ -21,6 +22,8 @@ export default async function RecurringPage() {
     { data: categories },
     { data: sources },
     { data: profile },
+    { data: expenseEntries },
+    { data: incomeEntries },
   ] = await Promise.all([
     supabase
       .from("recurring_rules")
@@ -43,7 +46,47 @@ export default async function RecurringPage() {
       .select("currency, locale")
       .eq("id", user.id)
       .maybeSingle(),
+    supabase
+      .from("expenses")
+      .select("recurring_id, occurred_at")
+      .not("recurring_id", "is", null)
+      .order("occurred_at", { ascending: false })
+      .limit(2000),
+    supabase
+      .from("income_entries")
+      .select("recurring_id, received_at")
+      .not("recurring_id", "is", null)
+      .order("received_at", { ascending: false })
+      .limit(2000),
   ]);
+
+  const lastEntries: Record<string, LastEntryInfo> = {};
+  for (const row of expenseEntries ?? []) {
+    if (!row.recurring_id) continue;
+    const k = row.recurring_id as string;
+    const existing = lastEntries[k];
+    if (!existing) {
+      lastEntries[k] = { lastDate: row.occurred_at as string, count: 1 };
+    } else {
+      existing.count += 1;
+      if ((row.occurred_at as string) > existing.lastDate) {
+        existing.lastDate = row.occurred_at as string;
+      }
+    }
+  }
+  for (const row of incomeEntries ?? []) {
+    if (!row.recurring_id) continue;
+    const k = row.recurring_id as string;
+    const existing = lastEntries[k];
+    if (!existing) {
+      lastEntries[k] = { lastDate: row.received_at as string, count: 1 };
+    } else {
+      existing.count += 1;
+      if ((row.received_at as string) > existing.lastDate) {
+        existing.lastDate = row.received_at as string;
+      }
+    }
+  }
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -57,6 +100,7 @@ export default async function RecurringPage() {
         sources={sources ?? []}
         currency={profile?.currency ?? "USD"}
         locale={profile?.locale ?? "en-US"}
+        lastEntries={lastEntries}
       />
     </div>
   );

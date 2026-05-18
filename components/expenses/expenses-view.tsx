@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { format } from "date-fns";
-import { Pencil, Plus, Trash2, Receipt, Upload } from "lucide-react";
+import { Pencil, Plus, Trash2, Receipt, Upload, Repeat } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -19,9 +19,21 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/common/empty-state";
 import { formatCurrency } from "@/lib/format";
 import { deleteExpense } from "@/lib/actions/expenses";
+import {
+  deleteRecurring,
+  deleteRecurringExpenseEntry,
+  skipRecurringThisMonth,
+  togglePauseRecurring,
+} from "@/lib/actions/recurring";
+import { useRouter } from "next/navigation";
 
 import { ExpenseFormDialog } from "./expense-form-dialog";
 import { CsvImport } from "./csv-import";
+import {
+  ExpenseDeleteDialog,
+  type DeleteAction,
+  type RecurringMeta,
+} from "./expense-delete-dialog";
 
 interface Category {
   id: string;
@@ -36,6 +48,7 @@ export interface ExpenseRow {
   note: string | null;
   tags: string[];
   category_id: string | null;
+  recurring_id?: string | null;
 }
 
 interface ExpensesViewProps {
@@ -43,6 +56,7 @@ interface ExpensesViewProps {
   categories: Category[];
   currency: string;
   locale: string;
+  recurringById?: Record<string, RecurringMeta>;
 }
 
 export function ExpensesView({
@@ -50,13 +64,16 @@ export function ExpensesView({
   categories,
   currency,
   locale,
+  recurringById = {},
 }: ExpensesViewProps) {
+  const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [csvOpen, setCsvOpen] = useState(false);
   const [editing, setEditing] = useState<ExpenseRow | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("__all__");
   const [search, setSearch] = useState("");
   const [pending, startTransition] = useTransition();
+  const [deleting, setDeleting] = useState<ExpenseRow | null>(null);
 
   const categoryById = useMemo(
     () => new Map(categories.map((c) => [c.id, c])),
@@ -149,6 +166,11 @@ export function ExpensesView({
             <ul className="divide-y">
               {filtered.map((e) => {
                 const cat = categoryById.get(e.category_id ?? "");
+                const rule = e.recurring_id
+                  ? recurringById[e.recurring_id]
+                  : undefined;
+                const ruleLabel =
+                  rule?.vendor || rule?.description || "Recurring rule";
                 return (
                   <li
                     key={e.id}
@@ -161,8 +183,22 @@ export function ExpensesView({
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline justify-between gap-2">
-                        <span className="truncate font-medium">
-                          {cat?.name ?? "Uncategorized"}
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="truncate font-medium">
+                            {cat?.name ?? "Uncategorized"}
+                          </span>
+                          {rule ? (
+                            <Badge
+                              variant="outline"
+                              className="shrink-0 gap-1 font-normal"
+                              title={ruleLabel}
+                            >
+                              <Repeat className="h-3 w-3" />
+                              {rule.is_subscription
+                                ? "Subscription"
+                                : "Recurring"}
+                            </Badge>
+                          ) : null}
                         </span>
                         <span className="font-tabular font-semibold">
                           {formatCurrency(e.amount_cents, currency, locale)}
@@ -210,21 +246,7 @@ export function ExpensesView({
                         variant="ghost"
                         aria-label="Delete"
                         disabled={pending}
-                        onClick={() => {
-                          if (!window.confirm("Delete this expense?")) return;
-                          startTransition(async () => {
-                            try {
-                              await deleteExpense(e.id);
-                              toast.success("Expense deleted");
-                            } catch (err) {
-                              toast.error(
-                                err instanceof Error
-                                  ? err.message
-                                  : "Failed",
-                              );
-                            }
-                          });
-                        }}
+                        onClick={() => setDeleting(e)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -248,6 +270,67 @@ export function ExpensesView({
       />
 
       <CsvImport open={csvOpen} onOpenChange={setCsvOpen} />
+
+      <ExpenseDeleteDialog
+        open={deleting !== null}
+        onOpenChange={(o) => {
+          if (!o) setDeleting(null);
+        }}
+        rule={
+          deleting?.recurring_id
+            ? recurringById[deleting.recurring_id] ?? null
+            : null
+        }
+        pending={pending}
+        onAction={(action: DeleteAction) => {
+          const target = deleting;
+          if (!target) return;
+          const ruleId = target.recurring_id ?? null;
+          startTransition(async () => {
+            try {
+              switch (action.type) {
+                case "plain":
+                  await deleteExpense(target.id);
+                  toast.success("Expense deleted");
+                  break;
+                case "delete-both":
+                  if (ruleId) await deleteRecurring(ruleId);
+                  else await deleteExpense(target.id);
+                  toast.success("Entry and recurring rule removed");
+                  break;
+                case "skip-month":
+                  if (!ruleId) {
+                    await deleteExpense(target.id);
+                  } else {
+                    await skipRecurringThisMonth(ruleId, target.id);
+                  }
+                  toast.success("Skipped this month");
+                  break;
+                case "pause-subscription":
+                  if (ruleId) {
+                    await togglePauseRecurring(ruleId, true);
+                    await deleteRecurringExpenseEntry(target.id);
+                  } else {
+                    await deleteExpense(target.id);
+                  }
+                  toast.success("Subscription paused");
+                  break;
+                case "cancel-subscription":
+                  if (ruleId) await deleteRecurring(ruleId);
+                  else await deleteExpense(target.id);
+                  toast.success("Subscription cancelled");
+                  break;
+                case "edit-subscription":
+                  if (ruleId) router.push(`/recurring?edit=${ruleId}`);
+                  break;
+              }
+              setDeleting(null);
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : "Failed");
+            }
+          });
+        }}
+      />
     </>
   );
 }
