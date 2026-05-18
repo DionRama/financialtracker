@@ -94,7 +94,7 @@ export function MonthSwitcher() {
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="min-w-[8rem] rounded px-2 py-1 text-sm font-medium tabular-nums hover:bg-accent"
+            className="min-w-[7rem] sm:min-w-[8rem] rounded px-2 py-1 text-sm font-medium tabular-nums hover:bg-accent"
             aria-label="Pick a month"
           >
             {formatMonthLabel(selected)}

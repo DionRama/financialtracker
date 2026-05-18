@@ -112,15 +112,15 @@ export function ExpensesView({
 
   return (
     <>
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <Input
           placeholder="Search notes, tags…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="max-w-xs"
+          className="w-full sm:max-w-xs"
         />
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="All categories" />
           </SelectTrigger>
           <SelectContent>
@@ -133,7 +133,7 @@ export function ExpensesView({
             ))}
           </SelectContent>
         </Select>
-        <div className="ml-auto flex gap-2">
+        <div className="flex flex-col gap-2 sm:ml-auto sm:flex-row">
           <Button variant="outline" onClick={() => setCsvOpen(true)}>
             <Upload className="h-4 w-4" /> Import CSV
           </Button>
@@ -234,6 +234,7 @@ export function ExpensesView({
                         size="icon"
                         variant="ghost"
                         aria-label="Edit"
+                        className="h-11 w-11 sm:h-9 sm:w-9"
                         onClick={() => {
                           setEditing(e);
                           setDialogOpen(true);
@@ -245,6 +246,7 @@ export function ExpensesView({
                         size="icon"
                         variant="ghost"
                         aria-label="Delete"
+                        className="h-11 w-11 sm:h-9 sm:w-9"
                         disabled={pending}
                         onClick={() => setDeleting(e)}
                       >

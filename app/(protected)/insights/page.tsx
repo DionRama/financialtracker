@@ -235,7 +235,7 @@ export default async function InsightsPage({ searchParams }: Props) {
                     ({list.length})
                   </span>
                 </h2>
-                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
                   {list.map((i) => (
                     <InsightCard key={i.id} insight={i} />
                   ))}

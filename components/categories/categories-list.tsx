@@ -100,6 +100,7 @@ export function CategoriesList({ categories }: CategoriesListProps) {
                   size="icon"
                   variant="ghost"
                   aria-label="Edit"
+                  className="h-11 w-11 sm:h-9 sm:w-9"
                   onClick={() => {
                     setEditing(c);
                     setDialogOpen(true);
@@ -111,6 +112,7 @@ export function CategoriesList({ categories }: CategoriesListProps) {
                   size="icon"
                   variant="ghost"
                   aria-label={c.is_archived ? "Restore" : "Archive"}
+                  className="h-11 w-11 sm:h-9 sm:w-9"
                   disabled={pending}
                   onClick={() => {
                     startTransition(async () => {
@@ -120,9 +122,8 @@ export function CategoriesList({ categories }: CategoriesListProps) {
                           c.is_archived ? "Restored" : "Archived",
                         );
                       } catch (e) {
-                        toast.error(
-                          e instanceof Error ? e.message : "Failed",
-                        );
+                        console.error(e);
+                        toast.error("Failed");
                       }
                     });
                   }}
@@ -137,6 +138,7 @@ export function CategoriesList({ categories }: CategoriesListProps) {
                   size="icon"
                   variant="ghost"
                   aria-label="Delete"
+                  className="h-11 w-11 sm:h-9 sm:w-9"
                   disabled={pending}
                   onClick={() => setDeleting(c)}
                 >

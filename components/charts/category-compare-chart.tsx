@@ -29,14 +29,18 @@ export function CategoryCompareChart({ data, currency, locale }: Props) {
   return (
     <div role="img" aria-label="Bar chart comparing this month's spending to last month for top categories">
     <ResponsiveContainer width="100%" height={320}>
-      <BarChart data={data} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
+      <BarChart data={data} margin={{ left: 0, right: 8, top: 8, bottom: 24 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
         <XAxis
           dataKey="category"
           stroke="var(--color-muted-foreground)"
           tickLine={false}
           axisLine={false}
-          fontSize={12}
+          fontSize={11}
+          interval={0}
+          angle={-30}
+          textAnchor="end"
+          height={56}
         />
         <YAxis
           stroke="var(--color-muted-foreground)"

@@ -344,7 +344,7 @@ export default async function DashboardPage({ searchParams }: Props) {
               </Button>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-3 md:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 {topInsights.map((i) => (
                   <InsightCard key={i.id} insight={i} />
                 ))}

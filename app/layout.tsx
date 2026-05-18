@@ -25,6 +25,12 @@ export const metadata: Metadata = {
     "Track every expense, set category budgets, and understand where your money goes.",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+};
+
 export default function RootLayout({
   children,
 }: {
