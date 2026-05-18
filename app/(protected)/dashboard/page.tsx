@@ -121,7 +121,7 @@ export default async function DashboardPage({ searchParams }: Props) {
       .lt("received_at", endDate),
     supabase
       .from("savings_goals")
-      .select("id, name, color, saved_cents, target_cents, deadline")
+      .select("id, name, color, emoji, saved_cents, target_cents, deadline")
       .eq("is_archived", false)
       .order("created_at", { ascending: true })
       .limit(5),

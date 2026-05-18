@@ -1,28 +1,16 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Plus } from "lucide-react";
-import { toast } from "sonner";
+import { useState } from "react";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { MoneyInput } from "@/components/ui/money-input";
+import { QuickChips } from "@/components/goals/quick-chips";
 import { formatCurrency, percent } from "@/lib/format";
-import { contributeToGoal } from "@/lib/actions/goals";
 
 export interface DashboardGoal {
   id: string;
   name: string;
   color: string;
+  emoji: string | null;
   saved_cents: number;
   target_cents: number;
 }
@@ -36,94 +24,63 @@ export function DashboardGoalsList({
   currency: string;
   locale: string;
 }) {
-  const [open, setOpen] = useState<DashboardGoal | null>(null);
-  const [amount, setAmount] = useState(0);
-  const [pending, startTransition] = useTransition();
+  return (
+    <ul className="divide-y">
+      {goals.map((g) => (
+        <DashboardGoalRow
+          key={g.id}
+          goal={g}
+          currency={currency}
+          locale={locale}
+        />
+      ))}
+    </ul>
+  );
+}
 
-  function save() {
-    if (!open) return;
-    if (!amount || amount <= 0) {
-      toast.error("Enter a positive amount");
-      return;
-    }
-    startTransition(async () => {
-      try {
-        await contributeToGoal({ goal_id: open.id, amount_cents: amount });
-        toast.success("Saved");
-        setOpen(null);
-        setAmount(0);
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Failed");
-      }
-    });
-  }
+function DashboardGoalRow({
+  goal,
+  currency,
+  locale,
+}: {
+  goal: DashboardGoal;
+  currency: string;
+  locale: string;
+}) {
+  const [delta, setDelta] = useState(0);
+  const saved = Math.max(0, goal.saved_cents + delta);
+  const pct = percent(saved, goal.target_cents);
 
   return (
-    <>
-      <ul className="divide-y">
-        {goals.map((g) => {
-          const pct = percent(g.saved_cents, g.target_cents);
-          return (
-            <li
-              key={g.id}
-              className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
-            >
-              <span
-                className="h-8 w-8 shrink-0 rounded-md"
-                style={{ backgroundColor: g.color }}
-                aria-hidden
-              />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{g.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {formatCurrency(g.saved_cents, currency, locale)} /{" "}
-                  {formatCurrency(g.target_cents, currency, locale)}
-                </p>
-                <Progress value={pct} className="mt-1 h-1.5" />
-              </div>
-              <Button
-                size="icon"
-                variant="ghost"
-                aria-label="Contribute"
-                onClick={() => {
-                  setOpen(g);
-                  setAmount(0);
-                }}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </li>
-          );
-        })}
-      </ul>
-      <Dialog open={open !== null} onOpenChange={(o) => !o && setOpen(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Contribute to {open?.name}</DialogTitle>
-            <DialogDescription>
-              Adds to the saved balance for this goal.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label>Amount</Label>
-            <MoneyInput
-              value={amount}
-              onChange={setAmount}
-              currency={currency}
-              locale={locale}
-              autoFocus
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setOpen(null)}>
-              Cancel
-            </Button>
-            <Button onClick={save} disabled={pending}>
-              Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+    <li className="space-y-2 py-3 first:pt-0 last:pb-0">
+      <div className="flex items-center gap-3">
+        <span
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-base"
+          style={{ backgroundColor: `${goal.color}22`, color: goal.color }}
+          aria-hidden
+        >
+          {goal.emoji ?? "🎯"}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium">{goal.name}</p>
+          <p className="text-xs text-muted-foreground">
+            {formatCurrency(saved, currency, locale)} /{" "}
+            {formatCurrency(goal.target_cents, currency, locale)} · {pct}%
+          </p>
+          <Progress value={pct} className="mt-1 h-1.5" />
+        </div>
+      </div>
+      <div className="pl-11">
+        <QuickChips
+          goalId={goal.id}
+          goalName={goal.name}
+          currency={currency}
+          locale={locale}
+          color={goal.color}
+          onOptimisticAdd={(c) => setDelta((d) => d + c)}
+          onOptimisticRevert={(c) => setDelta((d) => d - c)}
+        />
+      </div>
+    </li>
   );
 }

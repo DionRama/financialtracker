@@ -152,6 +152,7 @@ export interface Database {
           saved_cents: number;
           deadline: string | null;
           color: string;
+          emoji: string | null;
           is_archived: boolean;
           created_at: string;
           updated_at: string;
@@ -164,11 +165,34 @@ export interface Database {
           saved_cents?: number;
           deadline?: string | null;
           color?: string;
+          emoji?: string | null;
           is_archived?: boolean;
           created_at?: string;
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["savings_goals"]["Insert"]>;
+        Relationships: [];
+      };
+      goal_contributions: {
+        Row: {
+          id: string;
+          user_id: string;
+          goal_id: string;
+          amount_cents: number;
+          note: string | null;
+          occurred_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          goal_id: string;
+          amount_cents: number;
+          note?: string | null;
+          occurred_at?: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["goal_contributions"]["Insert"]>;
         Relationships: [];
       };
       recurring_rules: {
@@ -303,6 +327,23 @@ export interface Database {
       materialize_recurring: {
         Args: { p_through?: string };
         Returns: number;
+      };
+      contribute_to_goal: {
+        Args: { p_goal_id: string; p_amount_cents: number; p_note?: string | null };
+        Returns: number;
+      };
+      move_between_goals: {
+        Args: {
+          p_from: string;
+          p_to: string;
+          p_amount_cents: number;
+          p_note?: string | null;
+        };
+        Returns: void;
+      };
+      delete_contribution: {
+        Args: { p_id: string };
+        Returns: void;
       };
     };
     Enums: Record<string, never>;

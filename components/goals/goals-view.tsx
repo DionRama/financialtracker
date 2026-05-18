@@ -2,14 +2,12 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import { EmptyState } from "@/components/common/empty-state";
 import {
   Dialog,
@@ -21,22 +19,20 @@ import {
 } from "@/components/ui/dialog";
 import { MoneyInput } from "@/components/ui/money-input";
 import { DatePicker } from "@/components/ui/date-picker";
-import { formatCurrency, percent } from "@/lib/format";
 import {
   archiveGoal,
   contributeToGoal,
   createGoal,
   updateGoal,
 } from "@/lib/actions/goals";
+import { GoalCard, type GoalCardData } from "@/components/goals/goal-card";
+import { EmojiPicker } from "@/components/goals/emoji-picker";
+import {
+  MoveDialog,
+  type MoveTarget,
+} from "@/components/goals/move-dialog";
 
-export interface GoalRow {
-  id: string;
-  name: string;
-  target_cents: number;
-  saved_cents: number;
-  deadline: string | null;
-  color: string;
-}
+export type GoalRow = GoalCardData;
 
 interface Props {
   goals: GoalRow[];
@@ -47,7 +43,8 @@ interface Props {
 export function GoalsView({ goals, currency, locale }: Props) {
   const [newOpen, setNewOpen] = useState(false);
   const [edit, setEdit] = useState<GoalRow | null>(null);
-  const [contribute, setContribute] = useState<GoalRow | null>(null);
+  const [moveFrom, setMoveFrom] = useState<GoalRow | null>(null);
+  const [withdrawFrom, setWithdrawFrom] = useState<GoalRow | null>(null);
   const [pending, startTransition] = useTransition();
 
   function archive(id: string) {
@@ -60,6 +57,14 @@ export function GoalsView({ goals, currency, locale }: Props) {
       }
     });
   }
+
+  const moveTargets: MoveTarget[] = goals.map((g) => ({
+    id: g.id,
+    name: g.name,
+    emoji: g.emoji,
+    saved_cents: g.saved_cents,
+    target_cents: g.target_cents,
+  }));
 
   return (
     <div className="space-y-4">
@@ -82,57 +87,18 @@ export function GoalsView({ goals, currency, locale }: Props) {
         />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {goals.map((g) => {
-            const pct = percent(g.saved_cents, g.target_cents);
-            return (
-              <Card key={g.id}>
-                <CardContent className="space-y-3 p-5">
-                  <div className="flex items-center gap-3">
-                    <span
-                      className="h-9 w-9 shrink-0 rounded-lg"
-                      style={{ backgroundColor: g.color }}
-                      aria-hidden
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">{g.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatCurrency(g.saved_cents, currency, locale)} /{" "}
-                        {formatCurrency(g.target_cents, currency, locale)}
-                        {g.deadline ? ` · by ${g.deadline}` : ""}
-                      </p>
-                    </div>
-                  </div>
-                  <Progress value={pct} />
-                  <div className="flex justify-end gap-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setContribute(g)}
-                    >
-                      <Plus className="mr-1 h-4 w-4" /> Contribute
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Edit"
-                      onClick={() => setEdit(g)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Archive"
-                      disabled={pending}
-                      onClick={() => archive(g.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+          {goals.map((g) => (
+            <GoalCard
+              key={g.id}
+              goal={g}
+              currency={currency}
+              locale={locale}
+              onEdit={() => setEdit(g)}
+              onMove={() => setMoveFrom(g)}
+              onWithdraw={() => setWithdrawFrom(g)}
+              onArchive={() => archive(g.id)}
+            />
+          ))}
         </div>
       )}
 
@@ -148,12 +114,23 @@ export function GoalsView({ goals, currency, locale }: Props) {
         locale={locale}
         initial={edit}
       />
-      <ContributeDialog
-        goal={contribute}
-        onClose={() => setContribute(null)}
+      <MoveDialog
+        open={moveFrom !== null}
+        onOpenChange={(o) => !o && setMoveFrom(null)}
+        from={moveFrom}
+        goals={moveTargets}
         currency={currency}
         locale={locale}
       />
+      <WithdrawDialog
+        goal={withdrawFrom}
+        onClose={() => setWithdrawFrom(null)}
+        currency={currency}
+        locale={locale}
+      />
+      <span className="sr-only" aria-live="polite">
+        {pending ? "Updating goal…" : ""}
+      </span>
     </div>
   );
 }
@@ -163,6 +140,7 @@ interface GoalFormValues {
   target_cents: number;
   deadline: string;
   color: string;
+  emoji: string | null;
 }
 
 function GoalDialog({
@@ -186,6 +164,7 @@ function GoalDialog({
       target_cents: 0,
       deadline: "",
       color: "#16a34a",
+      emoji: null,
     },
   });
 
@@ -196,6 +175,7 @@ function GoalDialog({
       target_cents: initial?.target_cents ?? 0,
       deadline: initial?.deadline ?? "",
       color: initial?.color ?? "#16a34a",
+      emoji: initial?.emoji ?? null,
     });
   }, [open, initial, form]);
 
@@ -213,6 +193,7 @@ function GoalDialog({
       target_cents: values.target_cents,
       deadline: values.deadline || null,
       color: values.color,
+      emoji: values.emoji,
       is_archived: false,
     };
     startTransition(async () => {
@@ -237,13 +218,25 @@ function GoalDialog({
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit goal" : "New savings goal"}</DialogTitle>
           <DialogDescription>
-            Set a target amount and optional deadline.
+            Set a target amount and optional deadline. Pick an emoji to make it
+            yours.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
-            <Input id="name" autoFocus {...form.register("name")} />
+            <div className="flex gap-2">
+              <EmojiPicker
+                value={form.watch("emoji")}
+                onChange={(e) => form.setValue("emoji", e)}
+              />
+              <Input
+                id="name"
+                autoFocus
+                className="flex-1"
+                {...form.register("name")}
+              />
+            </div>
             {form.formState.errors.name ? (
               <p className="text-xs text-destructive">
                 {form.formState.errors.name.message}
@@ -300,7 +293,7 @@ function GoalDialog({
   );
 }
 
-function ContributeDialog({
+function WithdrawDialog({
   goal,
   onClose,
   currency,
@@ -318,16 +311,26 @@ function ContributeDialog({
     if (goal) setAmount(0);
   }, [goal]);
 
-  function save() {
+  function submit() {
     if (!goal) return;
-    if (!amount || amount <= 0) {
+    if (amount <= 0) {
       toast.error("Enter a positive amount");
+      return;
+    }
+    if (amount > goal.saved_cents) {
+      toast.error(
+        `Only ${new Intl.NumberFormat(locale, { style: "currency", currency }).format(goal.saved_cents / 100)} available`,
+      );
       return;
     }
     startTransition(async () => {
       try {
-        await contributeToGoal({ goal_id: goal.id, amount_cents: amount });
-        toast.success("Contribution saved");
+        await contributeToGoal({
+          goal_id: goal.id,
+          amount_cents: -amount,
+          note: "Withdrawal",
+        });
+        toast.success("Withdrawal saved");
         onClose();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Failed");
@@ -339,11 +342,10 @@ function ContributeDialog({
     <Dialog open={goal !== null} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>
-            Contribute to {goal?.name ?? "goal"}
-          </DialogTitle>
+          <DialogTitle>Withdraw from {goal?.name ?? "goal"}</DialogTitle>
           <DialogDescription>
-            Updates the saved balance for this goal.
+            Decrease the saved balance for this goal. Money is returned to your
+            available balance.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
@@ -360,8 +362,8 @@ function ContributeDialog({
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={save} disabled={pending}>
-            Save
+          <Button onClick={submit} disabled={pending}>
+            Withdraw
           </Button>
         </DialogFooter>
       </DialogContent>

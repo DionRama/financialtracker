@@ -86,15 +86,35 @@ export const savingsGoalSchema = z.object({
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/)
     .default("#16a34a"),
+  emoji: z.string().min(1).max(8).nullable().optional(),
   is_archived: z.boolean().default(false),
 });
 export type SavingsGoalInput = z.input<typeof savingsGoalSchema>;
 
+// amount_cents may be negative for a withdrawal; non-zero enforced.
 export const goalContributionSchema = z.object({
   goal_id: z.string().uuid(),
-  amount_cents: z.coerce.number().int().positive().max(1_000_000_000_000),
+  amount_cents: z.coerce
+    .number()
+    .int()
+    .refine((v) => v !== 0, { message: "Amount must be non-zero" })
+    .refine((v) => Math.abs(v) <= 1_000_000_000_000, { message: "Amount too large" }),
+  note: z.string().max(200).nullable().optional(),
 });
 export type GoalContributionInput = z.input<typeof goalContributionSchema>;
+
+export const goalMoveSchema = z
+  .object({
+    from_id: z.string().uuid(),
+    to_id: z.string().uuid(),
+    amount_cents: z.coerce.number().int().positive().max(1_000_000_000_000),
+    note: z.string().max(200).nullable().optional(),
+  })
+  .refine((v) => v.from_id !== v.to_id, {
+    message: "Source and destination must differ",
+    path: ["to_id"],
+  });
+export type GoalMoveInput = z.input<typeof goalMoveSchema>;
 
 // ----------------------------------------------------------------------------
 // Recurring
