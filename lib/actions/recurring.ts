@@ -60,6 +60,22 @@ export async function updateRecurring(id: string, input: unknown) {
   const merged = { ...(input as object), id };
   const data = updateSchema.parse(merged);
   const { supabase, user } = await requireUser();
+
+  // Preserve the rule's schedule cursor: editing other fields (amount,
+  // description, vendor...) must NOT rewind next_run_date. Only when the
+  // user actually moves start_date earlier (and the existing cursor is now
+  // wrong) do we accept the incoming next_run_date.
+  const { data: existing } = await supabase
+    .from("recurring_rules")
+    .select("next_run_date, start_date")
+    .eq("id", data.id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const startChanged = existing?.start_date !== data.start_date;
+  const nextRunDate =
+    existing && !startChanged ? existing.next_run_date : data.next_run_date;
+
   const { error } = await supabase
     .from("recurring_rules")
     .update({
@@ -75,18 +91,19 @@ export async function updateRecurring(id: string, input: unknown) {
       weekday: data.weekday ?? null,
       start_date: data.start_date,
       end_date: data.end_date ?? null,
-      next_run_date: data.next_run_date,
+      next_run_date: nextRunDate,
       is_paused: data.is_paused,
       is_subscription: data.is_subscription,
       vendor: data.vendor ?? null,
     })
     .eq("id", data.id).eq("user_id", user.id);
   if (error) throw sanitizeDbError(error, "recurring");
-  try {
-    await supabase.rpc("materialize_recurring");
-  } catch {
-    // best-effort: don't undo the update if backfill hiccups
-  }
+
+  // Do NOT call materialize_recurring here. The cursor is unchanged, so
+  // re-running would either no-op or (if the cursor is in the past for any
+  // reason) duplicate this period's entry. The protected layout's
+  // best-effort materialize on next page load covers any legitimate past-due
+  // catch-up.
   revalidateRecurring();
 }
 
