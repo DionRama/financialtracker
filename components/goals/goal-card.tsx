@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeftRight,
   ChevronDown,
@@ -66,8 +66,18 @@ export function GoalCard({
   onWithdraw,
 }: Props) {
   // Optimistic delta layered on top of server-supplied saved_cents.
+  // Reset whenever the server delivers a new saved_cents — otherwise the
+  // confirmed contribution would be counted twice (server value already
+  // includes it AND the local delta still does).
   const [delta, setDelta] = useState(0);
   const [showHistory, setShowHistory] = useState(false);
+  const lastServerSaved = useRef(goal.saved_cents);
+  useEffect(() => {
+    if (goal.saved_cents !== lastServerSaved.current) {
+      lastServerSaved.current = goal.saved_cents;
+      setDelta(0);
+    }
+  }, [goal.saved_cents]);
 
   const savedCents = Math.max(0, goal.saved_cents + delta);
   const pct = percent(savedCents, goal.target_cents);
