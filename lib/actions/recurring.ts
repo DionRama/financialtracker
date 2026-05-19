@@ -99,6 +99,40 @@ export async function updateRecurring(id: string, input: unknown) {
     .eq("id", data.id).eq("user_id", user.id);
   if (error) throw sanitizeDbError(error, "recurring");
 
+  // Propagate edits (amount, category/source, vendor, description) to any
+  // already-materialized rows for the CURRENT period and forward. Past
+  // periods are left untouched as historical ledger truth.
+  const today = new Date();
+  const periodStart = new Date(
+    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1),
+  )
+    .toISOString()
+    .slice(0, 10);
+
+  if (data.kind === "expense") {
+    await supabase
+      .from("expenses")
+      .update({
+        amount_cents: data.amount_cents,
+        category_id: data.category_id ?? null,
+        note: data.description ?? null,
+      })
+      .eq("recurring_id", data.id)
+      .eq("user_id", user.id)
+      .gte("occurred_at", periodStart);
+  } else {
+    await supabase
+      .from("income_entries")
+      .update({
+        amount_cents: data.amount_cents,
+        source_id: data.source_id ?? null,
+        note: data.description ?? null,
+      })
+      .eq("recurring_id", data.id)
+      .eq("user_id", user.id)
+      .gte("received_at", periodStart);
+  }
+
   // Do NOT call materialize_recurring here. The cursor is unchanged, so
   // re-running would either no-op or (if the cursor is in the past for any
   // reason) duplicate this period's entry. The protected layout's
