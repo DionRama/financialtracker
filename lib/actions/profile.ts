@@ -40,8 +40,27 @@ export async function updateProfile(input: unknown) {
 }
 
 export async function deleteAllUserData() {
-  const { supabase } = await requireUser();
-  const { error } = await supabase.rpc("delete_all_user_data");
-  if (error) throw sanitizeDbError(error, "profile");
+  const { supabase, user } = await requireUser();
+  // Delete in dependency-safe order. RLS limits each delete to the caller's
+  // rows; we also pin user_id for defense-in-depth. We deliberately KEEP:
+  //   - profiles (account settings / display name / monthly_income_cents)
+  //   - categories (so the user's custom taxonomy survives a reset)
+  const tables = [
+    "goal_contributions",
+    "expenses",
+    "income_entries",
+    "savings_goals",
+    "recurring_rules",
+    "budgets",
+    "notifications",
+    "income_sources",
+  ] as const;
+  for (const table of tables) {
+    const { error } = await supabase
+      .from(table)
+      .delete()
+      .eq("user_id", user.id);
+    if (error) throw sanitizeDbError(error, "profile");
+  }
   revalidatePath("/", "layout");
 }
