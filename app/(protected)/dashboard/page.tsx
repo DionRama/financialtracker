@@ -137,8 +137,8 @@ export default async function DashboardPage({ searchParams }: Props) {
     supabase
       .from("income_entries")
       .select("amount_cents")
-      .gte("received_at", startDate)
-      .lt("received_at", endDate),
+      .gte("applies_to_month", startDate)
+      .lt("applies_to_month", endDate),
     supabase
       .from("savings_goals")
       .select("id, name, color, emoji, saved_cents, target_cents, deadline")

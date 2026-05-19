@@ -86,8 +86,8 @@ export default async function InsightsPage({ searchParams }: Props) {
     supabase
       .from("income_entries")
       .select("amount_cents")
-      .gte("received_at", startDate)
-      .lt("received_at", endDate),
+      .gte("applies_to_month", startDate)
+      .lt("applies_to_month", endDate),
     supabase
       .from("savings_goals")
       .select("id, name, target_cents, saved_cents, deadline")

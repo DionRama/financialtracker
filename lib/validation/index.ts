@@ -67,6 +67,10 @@ export const incomeEntrySchema = z.object({
   source_id: z.string().uuid().nullable().optional(),
   amount_cents: z.coerce.number().int().positive().max(1_000_000_000_000),
   received_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  applies_to_month: z
+    .string()
+    .regex(/^\d{4}-\d{2}-01$/, "Must be first day of month (YYYY-MM-01)")
+    .optional(),
   note: z.string().max(280).nullable().optional(),
 });
 export type IncomeEntryInput = z.input<typeof incomeEntrySchema>;

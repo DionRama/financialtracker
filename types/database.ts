@@ -124,6 +124,7 @@ export interface Database {
           source_id: string | null;
           amount_cents: number;
           received_at: string;
+          applies_to_month: string;
           note: string | null;
           recurring_id: string | null;
           created_at: string;
@@ -135,6 +136,7 @@ export interface Database {
           source_id?: string | null;
           amount_cents: number;
           received_at?: string;
+          applies_to_month?: string;
           note?: string | null;
           recurring_id?: string | null;
           created_at?: string;

@@ -78,11 +78,14 @@ export async function archiveIncomeSource(id: string) {
 export async function addIncomeEntry(input: unknown) {
   const data = incomeEntrySchema.parse(input);
   const { supabase, user } = await requireUser();
+  const appliesTo =
+    data.applies_to_month ?? `${data.received_at.slice(0, 7)}-01`;
   const { error } = await supabase.from("income_entries").insert({
     user_id: user.id,
     source_id: data.source_id ?? null,
     amount_cents: data.amount_cents,
     received_at: data.received_at,
+    applies_to_month: appliesTo,
     note: data.note ?? null,
   });
   if (error) throw sanitizeDbError(error, "income");
@@ -93,6 +96,8 @@ const entryUpdateSchema = incomeEntrySchema.extend({ id: z.string().uuid() });
 
 export async function updateIncomeEntry(id: string, input: unknown) {
   const data = entryUpdateSchema.parse({ ...(input as object), id });
+  const appliesTo =
+    data.applies_to_month ?? `${data.received_at.slice(0, 7)}-01`;
   const { supabase, user } = await requireUser();
   const { error } = await supabase
     .from("income_entries")
@@ -100,6 +105,7 @@ export async function updateIncomeEntry(id: string, input: unknown) {
       source_id: data.source_id ?? null,
       amount_cents: data.amount_cents,
       received_at: data.received_at,
+      applies_to_month: appliesTo,
       note: data.note ?? null,
     })
     .eq("id", data.id).eq("user_id", user.id);

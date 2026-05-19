@@ -33,6 +33,7 @@ interface Entry {
   source_id: string | null;
   amount_cents: number;
   received_at: string;
+  applies_to_month: string;
   note: string | null;
 }
 
@@ -66,6 +67,7 @@ export function IncomeView({ sources, entries, currency, locale }: Props) {
       source_id: e.source_id,
       amount_cents: e.amount_cents,
       received_at: e.received_at,
+      applies_to_month: e.applies_to_month,
       note: e.note,
     });
     setEntryDialog(true);
@@ -140,6 +142,9 @@ export function IncomeView({ sources, entries, currency, locale }: Props) {
             <ul className="divide-y">
               {entries.map((e) => {
                 const s = e.source_id ? sourceById.get(e.source_id) : null;
+                const receivedMonth = e.received_at.slice(0, 7);
+                const appliesMonth = e.applies_to_month.slice(0, 7);
+                const showAppliesBadge = receivedMonth !== appliesMonth;
                 return (
                   <li
                     key={e.id}
@@ -156,6 +161,21 @@ export function IncomeView({ sources, entries, currency, locale }: Props) {
                           day: "numeric",
                           year: "numeric",
                         })}
+                        {showAppliesBadge ? (
+                          <>
+                            {" · "}
+                            <span className="text-foreground">
+                              for{" "}
+                              {new Date(
+                                `${appliesMonth}-01T00:00:00Z`,
+                              ).toLocaleDateString(locale, {
+                                month: "short",
+                                year: "numeric",
+                                timeZone: "UTC",
+                              })}
+                            </span>
+                          </>
+                        ) : null}
                       </p>
                     </div>
                     <Badge variant="secondary" className="font-tabular">

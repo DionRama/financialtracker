@@ -38,6 +38,7 @@ export interface IncomeEntryValue {
   source_id: string | null;
   amount_cents: number;
   received_at: string;
+  applies_to_month?: string;
   note: string | null;
 }
 
@@ -60,7 +61,27 @@ interface EntryFormValues {
   amount_cents: number;
   source_id: string;
   received_at: string;
+  applies_to_month: string;
   note: string;
+}
+
+function firstOfMonth(iso: string): string {
+  return `${iso.slice(0, 7)}-01`;
+}
+
+function nextMonthFirst(iso: string): string {
+  const y = Number(iso.slice(0, 4));
+  const m = Number(iso.slice(5, 7));
+  const d = new Date(Date.UTC(y, m, 1));
+  return d.toISOString().slice(0, 10);
+}
+
+function formatAppliesLabel(iso: string, locale: string) {
+  return new Date(`${iso.slice(0, 7)}-01T00:00:00Z`).toLocaleDateString(locale, {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
 }
 
 export function IncomeEntryDialog({
@@ -79,6 +100,9 @@ export function IncomeEntryDialog({
       amount_cents: initial?.amount_cents ?? 0,
       source_id: initial?.source_id ?? "",
       received_at: initial?.received_at ?? todayIsoDate(),
+      applies_to_month:
+        initial?.applies_to_month ??
+        firstOfMonth(initial?.received_at ?? todayIsoDate()),
       note: initial?.note ?? "",
     },
   });
@@ -89,6 +113,9 @@ export function IncomeEntryDialog({
       amount_cents: initial?.amount_cents ?? 0,
       source_id: initial?.source_id ?? "",
       received_at: initial?.received_at ?? todayIsoDate(),
+      applies_to_month:
+        initial?.applies_to_month ??
+        firstOfMonth(initial?.received_at ?? todayIsoDate()),
       note: initial?.note ?? "",
     });
   }, [open, initial, form]);
@@ -102,6 +129,8 @@ export function IncomeEntryDialog({
       source_id: values.source_id || null,
       amount_cents: values.amount_cents,
       received_at: values.received_at,
+      applies_to_month:
+        values.applies_to_month || firstOfMonth(values.received_at),
       note: values.note || null,
     };
     startTransition(async () => {
@@ -122,6 +151,10 @@ export function IncomeEntryDialog({
 
   const sourceId = form.watch("source_id");
   const amount = form.watch("amount_cents");
+  const receivedAt = form.watch("received_at");
+  const appliesToMonth = form.watch("applies_to_month");
+  const sameMonth = firstOfMonth(receivedAt) === appliesToMonth;
+  const nextMonth = nextMonthFirst(receivedAt) === appliesToMonth;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -182,6 +215,45 @@ export function IncomeEntryDialog({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Counts toward month</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant={sameMonth ? "default" : "outline"}
+                size="sm"
+                onClick={() =>
+                  form.setValue("applies_to_month", firstOfMonth(receivedAt), {
+                    shouldDirty: true,
+                  })
+                }
+              >
+                Same month
+              </Button>
+              <Button
+                type="button"
+                variant={nextMonth ? "default" : "outline"}
+                size="sm"
+                onClick={() =>
+                  form.setValue(
+                    "applies_to_month",
+                    nextMonthFirst(receivedAt),
+                    { shouldDirty: true },
+                  )
+                }
+              >
+                Next month
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                {formatAppliesLabel(appliesToMonth, locale)}
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Used for monthly totals (e.g. salary paid on the 26th that
+              covers next month). Receive date stays accurate.
+            </p>
           </div>
 
           <div className="space-y-2">

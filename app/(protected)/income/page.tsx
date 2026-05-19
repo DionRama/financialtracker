@@ -49,9 +49,9 @@ export default async function IncomePage({ searchParams }: Props) {
       .order("name"),
     supabase
       .from("income_entries")
-      .select("id, source_id, amount_cents, received_at, note")
-      .gte("received_at", startDate)
-      .lt("received_at", endDate)
+      .select("id, source_id, amount_cents, received_at, applies_to_month, note")
+      .gte("applies_to_month", startDate)
+      .lt("applies_to_month", endDate)
       .order("received_at", { ascending: false })
       .order("created_at", { ascending: false }),
     supabase
@@ -62,8 +62,8 @@ export default async function IncomePage({ searchParams }: Props) {
     supabase
       .from("income_entries")
       .select("amount_cents")
-      .gte("received_at", ytdStart)
-      .lt("received_at", endDate),
+      .gte("applies_to_month", ytdStart)
+      .lt("applies_to_month", endDate),
   ]);
 
   const currency = profile?.currency ?? "USD";
