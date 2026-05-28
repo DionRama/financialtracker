@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 
 import { createClient } from "@/lib/supabase/server";
+import { getPeriodStartDay } from "@/lib/period-server";
 import { MonthSwitcher } from "./month-switcher";
 import {
   NotificationsBell,
@@ -16,7 +17,7 @@ interface TopbarProps {
 
 export async function Topbar({ email, fullName }: TopbarProps) {
   const supabase = await createClient();
-  const [{ data: recent }, { count: unread }] = await Promise.all([
+  const [{ data: recent }, { count: unread }, periodStartDay] = await Promise.all([
     supabase
       .from("notifications")
       .select("id, kind, severity, is_read, created_at, payload")
@@ -26,6 +27,7 @@ export async function Topbar({ email, fullName }: TopbarProps) {
       .from("notifications")
       .select("id", { count: "exact", head: true })
       .eq("is_read", false),
+    getPeriodStartDay(),
   ]);
 
   const items: NotificationItem[] = (recent ?? []).map((n) => ({
@@ -41,7 +43,7 @@ export async function Topbar({ email, fullName }: TopbarProps) {
     <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-2 border-b bg-background/80 px-5 backdrop-blur sm:gap-3 sm:px-6">
       <div className="flex min-w-0 items-center gap-3">
         <Suspense fallback={null}>
-          <MonthSwitcher />
+          <MonthSwitcher periodStartDay={periodStartDay} />
         </Suspense>
       </div>
       <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">

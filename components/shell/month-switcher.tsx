@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-import { formatMonthLabel, isoMonthFromDate } from "@/lib/format";
+import { formatMonthLabel } from "@/lib/format";
+import { periodOf } from "@/lib/period";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -28,22 +29,36 @@ const MONTH_LABELS = [
   "Dec",
 ];
 
-function monthFromString(s: string | null): string {
-  if (s && /^\d{4}-\d{2}$/.test(s)) return `${s}-01`;
-  return isoMonthFromDate(new Date());
+function todayIso(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate(),
+  ).padStart(2, "0")}`;
 }
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");
 }
 
-export function MonthSwitcher() {
+interface MonthSwitcherProps {
+  /** User's pay-cycle start day (1-28). Default 1 = calendar months. */
+  periodStartDay?: number;
+}
+
+export function MonthSwitcher({ periodStartDay = 1 }: MonthSwitcherProps) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
 
-  const selected = monthFromString(params.get("month"));
-  const currentMonth = isoMonthFromDate(new Date());
+  // "Current" = the pay-cycle period that contains today, not the calendar
+  // month. Without this, the switcher would mislabel itself (e.g. show "May"
+  // while server pages render the June period).
+  const currentMonth = periodOf(todayIso(), periodStartDay);
+  const monthParam = params.get("month");
+  const selected =
+    monthParam && /^\d{4}-\d{2}$/.test(monthParam)
+      ? `${monthParam}-01`
+      : currentMonth;
   const [selectedYear, selectedMonthIdx] = (() => {
     const [y, m] = selected.split("-").map(Number);
     return [y, (m ?? 1) - 1];
@@ -70,7 +85,7 @@ export function MonthSwitcher() {
 
   function shift(delta: number) {
     const d = new Date(Date.UTC(selectedYear, selectedMonthIdx + delta, 1));
-    navigate(isoMonthFromDate(d));
+    navigate(`${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-01`);
   }
 
   function pickMonth(year: number, monthIdx: number) {
