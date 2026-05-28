@@ -42,9 +42,10 @@ interface Props {
   entries: Entry[];
   currency: string;
   locale: string;
+  periodStartDay?: number;
 }
 
-export function IncomeView({ sources, entries, currency, locale }: Props) {
+export function IncomeView({ sources, entries, currency, locale, periodStartDay = 1 }: Props) {
   const [entryDialog, setEntryDialog] = useState(false);
   const [editEntry, setEditEntry] = useState<IncomeEntryValue | null>(null);
   const [sourceDialog, setSourceDialog] = useState(false);
@@ -272,6 +273,7 @@ export function IncomeView({ sources, entries, currency, locale }: Props) {
         sources={sources}
         currency={currency}
         locale={locale}
+        periodStartDay={periodStartDay}
         initial={editEntry}
       />
       <IncomeSourceDialog

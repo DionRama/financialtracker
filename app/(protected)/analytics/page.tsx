@@ -4,6 +4,8 @@ import { BarChart3 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import { monthBounds } from "@/lib/queries/month";
+import { getPeriodStartDay } from "@/lib/period-server";
+import { periodBounds, periodOf, previousPeriod } from "@/lib/period";
 import { formatCurrency, formatMonthLabel } from "@/lib/format";
 import { PageHeader } from "@/components/common/page-header";
 import { EmptyState } from "@/components/common/empty-state";
@@ -32,12 +34,16 @@ export default async function AnalyticsPage({ searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { isoMonth, startDate, endDate } = monthBounds(month);
-  const [year, mo] = isoMonth.split("-").map(Number);
+  const periodStartDay = await getPeriodStartDay();
+  const { isoMonth, startDate, endDate } = monthBounds(month, periodStartDay);
 
-  // Range: 6 months ending at the selected month (inclusive).
-  const trendStart = new Date(Date.UTC(year, (mo ?? 1) - 6, 1));
-  const trendStartIso = trendStart.toISOString().slice(0, 10);
+  // Range: 6 periods ending at the selected period (inclusive).
+  const periodKeys: string[] = [isoMonth];
+  for (let i = 0; i < 5; i++) {
+    periodKeys.unshift(previousPeriod(periodKeys[0]));
+  }
+  const oldestPeriodKey = periodKeys[0];
+  const trendStartIso = periodBounds(oldestPeriodKey, periodStartDay).startDate;
 
   const [{ data: expenses }, { data: categories }, { data: profile }] =
     await Promise.all([
@@ -59,27 +65,22 @@ export default async function AnalyticsPage({ searchParams }: Props) {
   const cats = categories ?? [];
   const catMap = new Map(cats.map((c) => [c.id, c]));
 
-  // Build 6-month trend
-  const trendBuckets = new Map<string, number>();
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(Date.UTC(year, (mo ?? 1) - 1 - i, 1));
-    trendBuckets.set(d.toISOString().slice(0, 7), 0);
-  }
+  // Build 6-period trend (bucketed by the user's pay cycle)
+  const trendBuckets = new Map<string, number>(periodKeys.map((k) => [k, 0]));
   for (const e of expenses ?? []) {
-    const ym = e.occurred_at.slice(0, 7);
-    if (trendBuckets.has(ym)) {
-      trendBuckets.set(ym, (trendBuckets.get(ym) ?? 0) + e.amount_cents);
+    const key = periodOf(e.occurred_at, periodStartDay);
+    if (trendBuckets.has(key)) {
+      trendBuckets.set(key, (trendBuckets.get(key) ?? 0) + e.amount_cents);
     }
   }
-  const trendData: TrendPoint[] = Array.from(trendBuckets, ([ym, cents]) => ({
-    month: formatMonthLabel(`${ym}-01`, locale).replace(/(\s)\d{4}$/, ""),
+  const trendData: TrendPoint[] = Array.from(trendBuckets, ([key, cents]) => ({
+    month: formatMonthLabel(key, locale).replace(/(\s)\d{4}$/, ""),
     cents,
   }));
 
-  // Current vs previous month per category
-  const prevStart = new Date(Date.UTC(year, (mo ?? 1) - 2, 1))
-    .toISOString()
-    .slice(0, 10);
+  // Current vs previous period per category
+  const prevBounds = periodBounds(previousPeriod(isoMonth), periodStartDay);
+  const prevStart = prevBounds.startDate;
   const currentByCat = new Map<string, number>();
   const previousByCat = new Map<string, number>();
   for (const e of expenses ?? []) {

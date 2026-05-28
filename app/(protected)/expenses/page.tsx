@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import { monthBounds } from "@/lib/queries/month";
+import { getPeriodStartDay } from "@/lib/period-server";
 import { PageHeader } from "@/components/common/page-header";
 import {
   ExpensesView,
@@ -22,18 +24,8 @@ export default async function ExpensesPage({ searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const now = new Date();
-  const isoMonth =
-    month && /^\d{4}-\d{2}$/.test(month)
-      ? `${month}-01`
-      : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
-          2,
-          "0",
-        )}-01`;
-  const startDate = isoMonth;
-  const next = new Date(isoMonth);
-  next.setMonth(next.getMonth() + 1);
-  const endDate = next.toISOString().slice(0, 10);
+  const periodStartDay = await getPeriodStartDay();
+  const { startDate, endDate } = monthBounds(month, periodStartDay);
 
   const [{ data: expenses }, { data: categories }, { data: profile }, { data: rules }] =
     await Promise.all([
@@ -90,6 +82,7 @@ export default async function ExpensesPage({ searchParams }: Props) {
         currency={profile?.currency ?? "USD"}
         locale={profile?.locale ?? "en-US"}
         recurringById={recurringById}
+        periodStartDay={periodStartDay}
       />
     </div>
   );

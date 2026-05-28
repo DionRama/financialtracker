@@ -32,6 +32,7 @@ import {
   updateIncomeEntry,
   updateIncomeSource,
 } from "@/lib/actions/income";
+import { formatPeriodLabel, nextPeriod, periodOf } from "@/lib/period";
 
 export interface IncomeEntryValue {
   id?: string;
@@ -54,6 +55,8 @@ interface EntryProps {
   sources: Source[];
   currency: string;
   locale: string;
+  /** User's pay-cycle start day (1-28). Defaults to 1 = calendar month. */
+  periodStartDay?: number;
   initial?: IncomeEntryValue | null;
 }
 
@@ -65,31 +68,13 @@ interface EntryFormValues {
   note: string;
 }
 
-function firstOfMonth(iso: string): string {
-  return `${iso.slice(0, 7)}-01`;
-}
-
-function nextMonthFirst(iso: string): string {
-  const y = Number(iso.slice(0, 4));
-  const m = Number(iso.slice(5, 7));
-  const d = new Date(Date.UTC(y, m, 1));
-  return d.toISOString().slice(0, 10);
-}
-
-function formatAppliesLabel(iso: string, locale: string) {
-  return new Date(`${iso.slice(0, 7)}-01T00:00:00Z`).toLocaleDateString(locale, {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}
-
 export function IncomeEntryDialog({
   open,
   onOpenChange,
   sources,
   currency,
   locale,
+  periodStartDay = 1,
   initial,
 }: EntryProps) {
   const isEdit = Boolean(initial?.id);
@@ -102,7 +87,7 @@ export function IncomeEntryDialog({
       received_at: initial?.received_at ?? todayIsoDate(),
       applies_to_month:
         initial?.applies_to_month ??
-        firstOfMonth(initial?.received_at ?? todayIsoDate()),
+        periodOf(initial?.received_at ?? todayIsoDate(), periodStartDay),
       note: initial?.note ?? "",
     },
   });
@@ -115,10 +100,10 @@ export function IncomeEntryDialog({
       received_at: initial?.received_at ?? todayIsoDate(),
       applies_to_month:
         initial?.applies_to_month ??
-        firstOfMonth(initial?.received_at ?? todayIsoDate()),
+        periodOf(initial?.received_at ?? todayIsoDate(), periodStartDay),
       note: initial?.note ?? "",
     });
-  }, [open, initial, form]);
+  }, [open, initial, form, periodStartDay]);
 
   function onSubmit(values: EntryFormValues) {
     if (!values.amount_cents || values.amount_cents <= 0) {
@@ -130,7 +115,7 @@ export function IncomeEntryDialog({
       amount_cents: values.amount_cents,
       received_at: values.received_at,
       applies_to_month:
-        values.applies_to_month || firstOfMonth(values.received_at),
+        values.applies_to_month || periodOf(values.received_at, periodStartDay),
       note: values.note || null,
     };
     startTransition(async () => {
@@ -153,8 +138,10 @@ export function IncomeEntryDialog({
   const amount = form.watch("amount_cents");
   const receivedAt = form.watch("received_at");
   const appliesToMonth = form.watch("applies_to_month");
-  const sameMonth = firstOfMonth(receivedAt) === appliesToMonth;
-  const nextMonth = nextMonthFirst(receivedAt) === appliesToMonth;
+  const samePeriodKey = periodOf(receivedAt, periodStartDay);
+  const nextPeriodKey = nextPeriod(samePeriodKey);
+  const sameMonth = samePeriodKey === appliesToMonth;
+  const nextMonth = nextPeriodKey === appliesToMonth;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -218,41 +205,40 @@ export function IncomeEntryDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Counts toward month</Label>
+            <Label>Counts toward period</Label>
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 type="button"
                 variant={sameMonth ? "default" : "outline"}
                 size="sm"
                 onClick={() =>
-                  form.setValue("applies_to_month", firstOfMonth(receivedAt), {
+                  form.setValue("applies_to_month", samePeriodKey, {
                     shouldDirty: true,
                   })
                 }
               >
-                Same month
+                This period
               </Button>
               <Button
                 type="button"
                 variant={nextMonth ? "default" : "outline"}
                 size="sm"
                 onClick={() =>
-                  form.setValue(
-                    "applies_to_month",
-                    nextMonthFirst(receivedAt),
-                    { shouldDirty: true },
-                  )
+                  form.setValue("applies_to_month", nextPeriodKey, {
+                    shouldDirty: true,
+                  })
                 }
               >
-                Next month
+                Next period
               </Button>
               <span className="text-xs text-muted-foreground">
-                {formatAppliesLabel(appliesToMonth, locale)}
+                {formatPeriodLabel(appliesToMonth, periodStartDay, locale)}
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Used for monthly totals (e.g. salary paid on the 26th that
-              covers next month). Receive date stays accurate.
+              {periodStartDay === 1
+                ? "Used for monthly totals (e.g. salary paid on the 26th that covers next month). Receive date stays accurate."
+                : "Used for period totals. Your pay-cycle setting already picks the right period automatically — only change this for one-off exceptions."}
             </p>
           </div>
 

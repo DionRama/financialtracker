@@ -6,6 +6,8 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { sanitizeDbError } from "@/lib/supabase/error";
 import { incomeEntrySchema, incomeSourceSchema } from "@/lib/validation";
+import { getPeriodStartDay } from "@/lib/period-server";
+import { periodOf } from "@/lib/period";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -78,8 +80,8 @@ export async function archiveIncomeSource(id: string) {
 export async function addIncomeEntry(input: unknown) {
   const data = incomeEntrySchema.parse(input);
   const { supabase, user } = await requireUser();
-  const appliesTo =
-    data.applies_to_month ?? `${data.received_at.slice(0, 7)}-01`;
+  const startDay = await getPeriodStartDay();
+  const appliesTo = data.applies_to_month ?? periodOf(data.received_at, startDay);
   const { error } = await supabase.from("income_entries").insert({
     user_id: user.id,
     source_id: data.source_id ?? null,
@@ -96,9 +98,9 @@ const entryUpdateSchema = incomeEntrySchema.extend({ id: z.string().uuid() });
 
 export async function updateIncomeEntry(id: string, input: unknown) {
   const data = entryUpdateSchema.parse({ ...(input as object), id });
-  const appliesTo =
-    data.applies_to_month ?? `${data.received_at.slice(0, 7)}-01`;
   const { supabase, user } = await requireUser();
+  const startDay = await getPeriodStartDay();
+  const appliesTo = data.applies_to_month ?? periodOf(data.received_at, startDay);
   const { error } = await supabase
     .from("income_entries")
     .update({

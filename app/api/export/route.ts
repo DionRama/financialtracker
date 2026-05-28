@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import { monthBounds } from "@/lib/queries/month";
+import { getPeriodStartDay } from "@/lib/period-server";
 
 export const runtime = "nodejs";
 
@@ -40,7 +41,8 @@ export async function GET(req: NextRequest) {
   const monthParam = url.searchParams.get("month");
   const categoryId = url.searchParams.get("category_id");
 
-  const { isoMonth, startDate, endDate } = monthBounds(monthParam);
+  const periodStartDay = await getPeriodStartDay();
+  const { isoMonth, startDate, endDate } = monthBounds(monthParam, periodStartDay);
   const monthLabel = isoMonth.slice(0, 7); // YYYY-MM
 
   let query = supabase

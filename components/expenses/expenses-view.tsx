@@ -57,6 +57,7 @@ interface ExpensesViewProps {
   currency: string;
   locale: string;
   recurringById?: Record<string, RecurringMeta>;
+  periodStartDay?: number;
 }
 
 export function ExpensesView({
@@ -65,6 +66,7 @@ export function ExpensesView({
   currency,
   locale,
   recurringById = {},
+  periodStartDay = 1,
 }: ExpensesViewProps) {
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -269,6 +271,8 @@ export function ExpensesView({
         }}
         categories={categories}
         initial={editing}
+        periodStartDay={periodStartDay}
+        locale={locale}
       />
 
       <CsvImport open={csvOpen} onOpenChange={setCsvOpen} />

@@ -4,6 +4,8 @@ import { formatDistanceToNow } from "date-fns";
 
 import { createClient } from "@/lib/supabase/server";
 import { monthBounds } from "@/lib/queries/month";
+import { getPeriodStartDay } from "@/lib/period-server";
+import { previousPeriod } from "@/lib/period";
 import { computeInsights, type Insight } from "@/lib/insights";
 import { persistInsights } from "@/lib/insights/persist";
 import { PageHeader } from "@/components/common/page-header";
@@ -18,9 +20,10 @@ interface Props {
   searchParams: Promise<{ month?: string }>;
 }
 
-function daysInMonth(isoMonth: string): number {
-  const [y, m] = isoMonth.split("-").map(Number);
-  return new Date(Date.UTC(y, m ?? 1, 0)).getUTCDate();
+function daysBetween(startDate: string, endDate: string): number {
+  const a = new Date(`${startDate}T00:00:00Z`).getTime();
+  const b = new Date(`${endDate}T00:00:00Z`).getTime();
+  return Math.max(1, Math.round((b - a) / 86_400_000));
 }
 
 const SEVERITY_LABEL: Record<Insight["severity"], string> = {
@@ -49,13 +52,13 @@ export default async function InsightsPage({ searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { isoMonth, startDate, endDate } = monthBounds(month);
+  const periodStartDay = await getPeriodStartDay();
+  const { isoMonth, startDate, endDate } = monthBounds(month, periodStartDay);
 
-  const threeMoStart = (() => {
-    const [y, m] = isoMonth.split("-").map(Number);
-    const d = new Date(Date.UTC(y, (m ?? 1) - 4, 1));
-    return d.toISOString().slice(0, 10);
-  })();
+  // 3 prior period keys (used for `monthly_totals` filter via the view).
+  let threeMoKey = isoMonth;
+  for (let i = 0; i < 3; i++) threeMoKey = previousPeriod(threeMoKey);
+  const threeMoStart = threeMoKey;
 
   const [
     { data: expenses },
@@ -86,8 +89,7 @@ export default async function InsightsPage({ searchParams }: Props) {
     supabase
       .from("income_entries")
       .select("amount_cents")
-      .gte("applies_to_month", startDate)
-      .lt("applies_to_month", endDate),
+      .eq("applies_to_month", isoMonth),
     supabase
       .from("savings_goals")
       .select("id, name, target_cents, saved_cents, deadline")
@@ -111,7 +113,7 @@ export default async function InsightsPage({ searchParams }: Props) {
 
   const currency = profile?.currency ?? "USD";
   const locale = profile?.locale ?? "en-US";
-  const totalDays = daysInMonth(isoMonth);
+  const totalDays = daysBetween(startDate, endDate);
 
   const expensesList = expenses ?? [];
   const totalCents = expensesList.reduce((s, e) => s + e.amount_cents, 0);
@@ -155,11 +157,11 @@ export default async function InsightsPage({ searchParams }: Props) {
       : profile?.monthly_income_cents ?? 0;
 
   const catNamesById = new Map((cats ?? []).map((c) => [c.id, c.name]));
-  const todayDate = new Date();
-  const isCurrentMonth =
-    isoMonth.slice(0, 7) ===
-    `${todayDate.getUTCFullYear()}-${String(todayDate.getUTCMonth() + 1).padStart(2, "0")}`;
-  const daysIntoMonth = isCurrentMonth ? todayDate.getUTCDate() : totalDays;
+  const todayIsoFull = new Date().toISOString().slice(0, 10);
+  const isCurrentMonth = todayIsoFull >= startDate && todayIsoFull < endDate;
+  const daysIntoMonth = isCurrentMonth
+    ? daysBetween(startDate, todayIsoFull) || 1
+    : totalDays;
 
   const recentLargeExpenses = [...expensesList]
     .sort((a, b) => b.amount_cents - a.amount_cents)

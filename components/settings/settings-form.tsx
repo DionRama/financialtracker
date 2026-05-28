@@ -29,6 +29,7 @@ interface Props {
     currency: string;
     locale: string;
     monthly_income_cents: number | null;
+    period_start_day: number;
   };
   sources: { id: string; name: string }[];
 }
@@ -43,6 +44,9 @@ export function SettingsForm({ email, initial, sources }: Props) {
   const [incomeCents, setIncomeCents] = useState<number>(
     initial.monthly_income_cents ?? 0,
   );
+  const [periodStartDay, setPeriodStartDay] = useState<number>(
+    initial.period_start_day ?? 1,
+  );
   const [pending, startTransition] = useTransition();
 
   function save() {
@@ -52,6 +56,7 @@ export function SettingsForm({ email, initial, sources }: Props) {
           full_name: fullName.trim() || null,
           currency,
           locale,
+          period_start_day: periodStartDay,
         });
         toast.success("Profile saved");
       } catch (e) {
@@ -67,6 +72,7 @@ export function SettingsForm({ email, initial, sources }: Props) {
           full_name: fullName.trim() || null,
           currency,
           locale,
+          period_start_day: periodStartDay,
           monthly_income_cents: incomeCents > 0 ? incomeCents : null,
         });
         toast.success("Monthly income saved");
@@ -128,6 +134,30 @@ export function SettingsForm({ email, initial, sources }: Props) {
                 ))}
               </select>
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="period_start_day">Pay-cycle start day</Label>
+            <Input
+              id="period_start_day"
+              type="number"
+              min={1}
+              max={28}
+              value={periodStartDay}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                if (Number.isFinite(n)) {
+                  setPeriodStartDay(Math.max(1, Math.min(28, Math.trunc(n))));
+                }
+              }}
+              className="font-tabular max-w-[120px]"
+            />
+            <p className="text-xs text-muted-foreground">
+              What day of the month does your pay/budget cycle begin? Pick{" "}
+              <strong>1</strong> for calendar months, or e.g. <strong>26</strong>{" "}
+              if you&apos;re paid on the 26th. Income and expenses are then
+              tracked in periods that run from this day to the day before it
+              next month — historical data is re-bucketed automatically.
+            </p>
           </div>
           <div className="flex justify-end">
             <Button onClick={save} disabled={pending}>

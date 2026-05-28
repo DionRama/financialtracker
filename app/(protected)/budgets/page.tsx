@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import { monthBounds } from "@/lib/queries/month";
+import { getPeriodStartDay } from "@/lib/period-server";
 import { PageHeader } from "@/components/common/page-header";
 import {
   BudgetsView,
@@ -23,7 +24,8 @@ export default async function BudgetsPage({ searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { isoMonth, startDate, endDate } = monthBounds(month);
+  const periodStartDay = await getPeriodStartDay();
+  const { isoMonth, startDate, endDate } = monthBounds(month, periodStartDay);
 
   const [{ data: categories }, { data: budgets }, { data: expenses }, { data: profile }] =
     await Promise.all([

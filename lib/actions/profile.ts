@@ -23,6 +23,7 @@ export async function updateProfile(input: unknown) {
     currency: string;
     locale: string;
     monthly_income_cents?: number | null;
+    period_start_day?: number;
   } = {
     full_name: data.full_name ?? null,
     currency: data.currency,
@@ -31,11 +32,31 @@ export async function updateProfile(input: unknown) {
   if (data.monthly_income_cents !== undefined) {
     update.monthly_income_cents = data.monthly_income_cents;
   }
+  let recomputePeriods = false;
+  if (data.period_start_day !== undefined) {
+    const { data: existing } = await supabase
+      .from("profiles")
+      .select("period_start_day")
+      .eq("id", user.id)
+      .maybeSingle();
+    if ((existing?.period_start_day ?? 1) !== data.period_start_day) {
+      update.period_start_day = data.period_start_day;
+      recomputePeriods = true;
+    }
+  }
   const { error } = await supabase
     .from("profiles")
     .update(update)
     .eq("id", user.id);
   if (error) throw sanitizeDbError(error, "profile");
+  if (recomputePeriods && data.period_start_day !== undefined) {
+    // Re-bucket every income entry under the new pay cycle. RLS scopes to
+    // the calling user via auth.uid().
+    const { error: rpcErr } = await supabase.rpc("recompute_income_periods", {
+      p_start_day: data.period_start_day,
+    });
+    if (rpcErr) throw sanitizeDbError(rpcErr, "profile");
+  }
   revalidatePath("/", "layout");
 }
 

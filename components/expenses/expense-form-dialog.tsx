@@ -27,6 +27,7 @@ import {
 import { expenseSchema, type ExpenseInput } from "@/lib/validation";
 import { parseAmountToCents, todayIsoDate } from "@/lib/format";
 import { createExpense, updateExpense } from "@/lib/actions/expenses";
+import { formatPeriodLabel, periodOf } from "@/lib/period";
 
 interface Category {
   id: string;
@@ -48,6 +49,9 @@ interface ExpenseFormDialogProps {
   onOpenChange: (open: boolean) => void;
   categories: Category[];
   initial?: ExpenseDialogValue | null;
+  /** User's pay-cycle start day (1-28). Drives the "Tracked in <period>" hint. */
+  periodStartDay?: number;
+  locale?: string;
 }
 
 type FormValues = {
@@ -63,6 +67,8 @@ export function ExpenseFormDialog({
   onOpenChange,
   categories,
   initial,
+  periodStartDay = 1,
+  locale = "en-US",
 }: ExpenseFormDialogProps) {
   const isEdit = Boolean(initial?.id);
   const [pending, startTransition] = useTransition();
@@ -169,6 +175,16 @@ export function ExpenseFormDialog({
                 className="font-tabular"
                 {...form.register("occurred_at", { required: true })}
               />
+              <p className="text-xs text-muted-foreground">
+                Tracked in{" "}
+                <span className="font-medium text-foreground">
+                  {formatPeriodLabel(
+                    periodOf(form.watch("occurred_at") || todayIsoDate(), periodStartDay),
+                    periodStartDay,
+                    locale,
+                  )}
+                </span>
+              </p>
             </div>
           </div>
 

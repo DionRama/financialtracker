@@ -22,6 +22,7 @@ export interface Database {
           currency: string;
           locale: string;
           monthly_income_cents: number | null;
+          period_start_day: number;
           created_at: string;
           updated_at: string;
         };
@@ -31,6 +32,7 @@ export interface Database {
           currency?: string;
           locale?: string;
           monthly_income_cents?: number | null;
+          period_start_day?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -332,6 +334,14 @@ export interface Database {
       };
       contribute_to_goal: {
         Args: { p_goal_id: string; p_amount_cents: number; p_note?: string | null };
+        Returns: number;
+      };
+      period_of: {
+        Args: { d: string; start_day: number };
+        Returns: string;
+      };
+      recompute_income_periods: {
+        Args: { p_start_day: number };
         Returns: number;
       };
       move_between_goals: {

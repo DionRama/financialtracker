@@ -1,29 +1,39 @@
+import { clampStartDay, periodBounds, periodOf, previousPeriod } from "@/lib/period";
+
 /**
  * Convert a `?month=YYYY-MM` query param to the start (inclusive) and end
- * (exclusive) ISO dates for that month, defaulting to the current month.
+ * (exclusive) ISO dates for that PERIOD, defaulting to the current period.
+ *
+ * The semantics are now period-aware: when the user's `period_start_day` is
+ * not 1, the start/end dates will straddle a calendar boundary. Pass the
+ * user's `period_start_day` (1-28). Defaults to 1 for backwards compatibility
+ * (= classic calendar month).
  */
-export function monthBounds(param: string | undefined | null): {
+export function monthBounds(
+  param: string | undefined | null,
+  periodStartDay: number = 1,
+): {
   isoMonth: string;
   startDate: string;
   endDate: string;
 } {
-  const now = new Date();
-  let year = now.getFullYear();
-  let month = now.getMonth(); // 0-based
+  const startDay = clampStartDay(periodStartDay);
+  let isoMonth: string;
   if (param && /^\d{4}-\d{2}$/.test(param)) {
-    const [y, m] = param.split("-").map(Number);
-    year = y;
-    month = (m ?? 1) - 1;
+    isoMonth = `${param}-01`;
+  } else {
+    const today = new Date();
+    const todayIso = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(
+      2,
+      "0",
+    )}-${String(today.getUTCDate()).padStart(2, "0")}`;
+    isoMonth = periodOf(todayIso, startDay);
   }
-  const startDate = new Date(Date.UTC(year, month, 1));
-  const endDate = new Date(Date.UTC(year, month + 1, 1));
-  const isoStart = startDate.toISOString().slice(0, 10);
-  const isoEnd = endDate.toISOString().slice(0, 10);
-  return { isoMonth: isoStart, startDate: isoStart, endDate: isoEnd };
+  const { startDate, endDate } = periodBounds(isoMonth, startDay);
+  return { isoMonth, startDate, endDate };
 }
 
+/** Previous period key (pure month shift since keys are always YYYY-MM-01). */
 export function previousMonth(isoMonth: string): string {
-  const [y, m] = isoMonth.split("-").map(Number);
-  const d = new Date(Date.UTC(y, (m ?? 1) - 2, 1));
-  return d.toISOString().slice(0, 10);
+  return previousPeriod(isoMonth);
 }

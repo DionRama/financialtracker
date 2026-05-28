@@ -3,6 +3,7 @@ import { TrendingUp, Wallet, Calendar } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import { monthBounds } from "@/lib/queries/month";
+import { getPeriodStartDay } from "@/lib/period-server";
 import { formatCurrency, formatMonthLabel } from "@/lib/format";
 import { PageHeader } from "@/components/common/page-header";
 import { KpiCard } from "@/components/common/kpi-card";
@@ -22,7 +23,8 @@ export default async function IncomePage({ searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { isoMonth, startDate, endDate } = monthBounds(month);
+  const periodStartDay = await getPeriodStartDay();
+  const { isoMonth } = monthBounds(month, periodStartDay);
   const year = Number(isoMonth.slice(0, 4));
   const monthNum = Number(isoMonth.slice(5, 7));
   const ytdStart = `${year}-01-01`;
@@ -50,20 +52,19 @@ export default async function IncomePage({ searchParams }: Props) {
     supabase
       .from("income_entries")
       .select("id, source_id, amount_cents, received_at, applies_to_month, note")
-      .gte("applies_to_month", startDate)
-      .lt("applies_to_month", endDate)
+      .eq("applies_to_month", isoMonth)
       .order("received_at", { ascending: false })
       .order("created_at", { ascending: false }),
     supabase
       .from("monthly_income_totals")
       .select("month, total_cents")
       .gte("month", trendStart)
-      .lt("month", endDate),
+      .lte("month", isoMonth),
     supabase
       .from("income_entries")
       .select("amount_cents")
       .gte("applies_to_month", ytdStart)
-      .lt("applies_to_month", endDate),
+      .lte("applies_to_month", isoMonth),
   ]);
 
   const currency = profile?.currency ?? "USD";
@@ -117,6 +118,7 @@ export default async function IncomePage({ searchParams }: Props) {
         entries={entries ?? []}
         currency={currency}
         locale={locale}
+        periodStartDay={periodStartDay}
       />
     </div>
   );

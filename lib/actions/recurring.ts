@@ -6,6 +6,8 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { sanitizeDbError } from "@/lib/supabase/error";
 import { recurringRuleSchema } from "@/lib/validation";
+import { getPeriodStartDay } from "@/lib/period-server";
+import { periodBounds, periodOf } from "@/lib/period";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -102,12 +104,9 @@ export async function updateRecurring(id: string, input: unknown) {
   // Propagate edits (amount, category/source, vendor, description) to any
   // already-materialized rows for the CURRENT period and forward. Past
   // periods are left untouched as historical ledger truth.
-  const today = new Date();
-  const periodStart = new Date(
-    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1),
-  )
-    .toISOString()
-    .slice(0, 10);
+  const startDay = await getPeriodStartDay();
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const periodStart = periodBounds(periodOf(todayIso, startDay), startDay).startDate;
 
   if (data.kind === "expense") {
     await supabase
@@ -156,15 +155,14 @@ export async function deleteRecurring(id: string) {
   z.string().uuid().parse(id);
   const { supabase, user } = await requireUser();
 
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-    .toISOString()
-    .slice(0, 10);
-  const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1)
-    .toISOString()
-    .slice(0, 10);
+  const startDay = await getPeriodStartDay();
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const { startDate: monthStart, endDate: nextMonthStart } = periodBounds(
+    periodOf(todayIso, startDay),
+    startDay,
+  );
 
-  // Best-effort: remove this month's materialized entries before deleting the rule.
+  // Best-effort: remove this period's materialized entries before deleting the rule.
   await supabase
     .from("expenses")
     .delete()

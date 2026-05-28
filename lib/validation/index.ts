@@ -48,6 +48,7 @@ export const profileSchema = z.object({
     .max(1_000_000_000_000)
     .nullable()
     .optional(),
+  period_start_day: z.coerce.number().int().min(1).max(28).optional(),
 });
 export type ProfileInput = z.input<typeof profileSchema>;
 

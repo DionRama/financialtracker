@@ -16,7 +16,7 @@ export default async function SettingsPage() {
   const [{ data: profile }, { data: sources }] = await Promise.all([
     supabase
       .from("profiles")
-      .select("full_name, currency, locale, monthly_income_cents")
+      .select("full_name, currency, locale, monthly_income_cents, period_start_day")
       .eq("id", user.id)
       .maybeSingle(),
     supabase
@@ -39,6 +39,7 @@ export default async function SettingsPage() {
           currency: profile?.currency ?? "USD",
           locale: profile?.locale ?? "en-US",
           monthly_income_cents: profile?.monthly_income_cents ?? null,
+          period_start_day: profile?.period_start_day ?? 1,
         }}
         sources={sources ?? []}
       />

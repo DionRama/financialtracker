@@ -13,6 +13,7 @@ import {
 
 import { createClient } from "@/lib/supabase/server";
 import { monthBounds, previousMonth } from "@/lib/queries/month";
+import { getPeriodStartDay } from "@/lib/period-server";
 import { formatCurrency, formatMonthLabel, percent } from "@/lib/format";
 import { computeInsights, type Insight } from "@/lib/insights";
 import { persistInsights } from "@/lib/insights/persist";
@@ -62,9 +63,10 @@ interface BudgetRow {
   amount_cents: number;
 }
 
-function daysInMonth(isoMonth: string): number {
-  const [y, m] = isoMonth.split("-").map(Number);
-  return new Date(Date.UTC(y, m ?? 1, 0)).getUTCDate();
+function daysBetween(startDate: string, endDate: string): number {
+  const a = new Date(`${startDate}T00:00:00Z`).getTime();
+  const b = new Date(`${endDate}T00:00:00Z`).getTime();
+  return Math.max(1, Math.round((b - a) / 86_400_000));
 }
 
 export default async function DashboardPage({ searchParams }: Props) {
@@ -95,9 +97,10 @@ export default async function DashboardPage({ searchParams }: Props) {
     redirect("/onboarding");
   }
 
-  const { isoMonth, startDate, endDate } = monthBounds(month);
+  const periodStartDay = await getPeriodStartDay();
+  const { isoMonth, startDate, endDate } = monthBounds(month, periodStartDay);
   const prevIsoMonth = previousMonth(isoMonth);
-  const prevBounds = monthBounds(prevIsoMonth.slice(0, 7));
+  const prevBounds = monthBounds(prevIsoMonth.slice(0, 7), periodStartDay);
 
   const [
     { data: thisMonth },
@@ -137,8 +140,7 @@ export default async function DashboardPage({ searchParams }: Props) {
     supabase
       .from("income_entries")
       .select("amount_cents")
-      .gte("applies_to_month", startDate)
-      .lt("applies_to_month", endDate),
+      .eq("applies_to_month", isoMonth),
     supabase
       .from("savings_goals")
       .select("id, name, color, emoji, saved_cents, target_cents, deadline")
@@ -175,24 +177,23 @@ export default async function DashboardPage({ searchParams }: Props) {
     );
   }
 
-  // Daily spend series
-  const totalDays = daysInMonth(isoMonth);
-  const dailyMap = new Map<number, number>();
+  // Daily spend series (within the user's pay-cycle period — may straddle calendar months)
+  const totalDays = daysBetween(startDate, endDate);
+  const dailyMap = new Map<string, number>();
   for (const e of expenses) {
-    const d = Number(e.occurred_at.slice(8, 10));
-    dailyMap.set(d, (dailyMap.get(d) ?? 0) + e.amount_cents);
+    const k = e.occurred_at.slice(0, 10);
+    dailyMap.set(k, (dailyMap.get(k) ?? 0) + e.amount_cents);
   }
-  const dailyData: DailySpendPoint[] = Array.from(
-    { length: totalDays },
-    (_, i) => {
-      const day = i + 1;
-      return {
-        day: String(day),
-        date: `${isoMonth.slice(0, 7)}-${String(day).padStart(2, "0")}`,
-        cents: dailyMap.get(day) ?? 0,
-      };
-    },
-  );
+  const dailyData: DailySpendPoint[] = Array.from({ length: totalDays }, (_, i) => {
+    const d = new Date(`${startDate}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + i);
+    const iso = d.toISOString().slice(0, 10);
+    return {
+      day: String(d.getUTCDate()),
+      date: iso,
+      cents: dailyMap.get(iso) ?? 0,
+    };
+  });
 
   // Pie data
   const pieData: CategorySlice[] = Array.from(spentByCat, ([id, cents]) => {
@@ -293,11 +294,11 @@ export default async function DashboardPage({ searchParams }: Props) {
     }));
 
   const catNamesById = new Map(cats.map((c) => [c.id, c.name]));
-  const todayDate = new Date();
-  const isCurrentMonth =
-    isoMonth.slice(0, 7) ===
-    `${todayDate.getUTCFullYear()}-${String(todayDate.getUTCMonth() + 1).padStart(2, "0")}`;
-  const daysIntoMonth = isCurrentMonth ? todayDate.getUTCDate() : totalDays;
+  const todayIsoFull = new Date().toISOString().slice(0, 10);
+  const isCurrentMonth = todayIsoFull >= startDate && todayIsoFull < endDate;
+  const daysIntoMonth = isCurrentMonth
+    ? daysBetween(startDate, todayIsoFull) || 1
+    : totalDays;
 
   const insights: Insight[] = computeInsights({
     isoMonth,
