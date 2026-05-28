@@ -14,6 +14,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { monthBounds, previousMonth } from "@/lib/queries/month";
 import { getPeriodStartDay } from "@/lib/period-server";
+import { weekStartMonday } from "@/lib/period";
 import { formatCurrency, formatMonthLabel, percent } from "@/lib/format";
 import { computeInsights, type Insight } from "@/lib/insights";
 import { persistInsights } from "@/lib/insights/persist";
@@ -166,6 +167,25 @@ export default async function DashboardPage({ searchParams }: Props) {
 
   const totalCents = expenses.reduce((s, e) => s + e.amount_cents, 0);
   const prevTotalCents = prevExpenses.reduce((s, e) => s + e.amount_cents, 0);
+
+  // Quick scopes — subsets of the already-loaded period expenses.
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const weekStartKey = weekStartMonday(todayKey);
+  let todayCents = 0;
+  let todayCount = 0;
+  let weekCents = 0;
+  let weekCount = 0;
+  for (const e of expenses) {
+    const occurred = e.occurred_at.slice(0, 10);
+    if (occurred === todayKey) {
+      todayCents += e.amount_cents;
+      todayCount += 1;
+    }
+    if (occurred >= weekStartKey && occurred <= todayKey) {
+      weekCents += e.amount_cents;
+      weekCount += 1;
+    }
+  }
 
   // Spend per category this month
   const spentByCat = new Map<string, number>();
@@ -470,6 +490,39 @@ export default async function DashboardPage({ searchParams }: Props) {
           }
           hint={savingsRate === null ? "Set income to track" : "of income kept"}
         />
+      </section>
+
+      <section className="grid gap-3 sm:grid-cols-2">
+        <Card>
+          <CardContent className="flex items-center justify-between p-4">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Today
+              </p>
+              <p className="font-tabular text-xl font-semibold tracking-tight">
+                {formatCurrency(todayCents, currency, locale)}
+              </p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {todayCount} {todayCount === 1 ? "txn" : "txns"}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center justify-between p-4">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                This week
+              </p>
+              <p className="font-tabular text-xl font-semibold tracking-tight">
+                {formatCurrency(weekCents, currency, locale)}
+              </p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {weekCount} {weekCount === 1 ? "txn" : "txns"} · since Mon
+            </p>
+          </CardContent>
+        </Card>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-3">

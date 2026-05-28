@@ -18,6 +18,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/common/empty-state";
 import { formatCurrency } from "@/lib/format";
+import { todayIsoLocal, weekStartMonday } from "@/lib/period";
 import { deleteExpense } from "@/lib/actions/expenses";
 import {
   deleteRecurring,
@@ -74,6 +75,9 @@ export function ExpensesView({
   const [editing, setEditing] = useState<ExpenseRow | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("__all__");
   const [search, setSearch] = useState("");
+  const [timeFilter, setTimeFilter] = useState<
+    "all" | "today" | "week" | "period"
+  >("all");
   const [pending, startTransition] = useTransition();
   const [deleting, setDeleting] = useState<ExpenseRow | null>(null);
 
@@ -83,7 +87,15 @@ export function ExpensesView({
   );
 
   const filtered = useMemo(() => {
+    const today = todayIsoLocal();
+    const weekStart = weekStartMonday(today);
     return expenses.filter((e) => {
+      const occurred = e.occurred_at.slice(0, 10);
+      if (timeFilter === "today" && occurred !== today) return false;
+      if (timeFilter === "week" && (occurred < weekStart || occurred > today))
+        return false;
+      // "period" and "all" need no extra filter: the server already
+      // constrained the loaded rows to the current pay-cycle period.
       if (categoryFilter === "__none__" && e.category_id) return false;
       if (
         categoryFilter !== "__all__" &&
@@ -105,15 +117,35 @@ export function ExpensesView({
       }
       return true;
     });
-  }, [expenses, categoryFilter, search, categoryById]);
+  }, [expenses, categoryFilter, search, categoryById, timeFilter]);
 
   function openNew() {
     setEditing(null);
     setDialogOpen(true);
   }
 
+  const TIME_PILLS: { key: typeof timeFilter; label: string }[] = [
+    { key: "all", label: "All" },
+    { key: "today", label: "Today" },
+    { key: "week", label: "This week" },
+    { key: "period", label: "This period" },
+  ];
+
   return (
     <>
+      <div className="mb-3 flex flex-wrap gap-1.5">
+        {TIME_PILLS.map((p) => (
+          <Button
+            key={p.key}
+            type="button"
+            size="sm"
+            variant={timeFilter === p.key ? "default" : "outline"}
+            onClick={() => setTimeFilter(p.key)}
+          >
+            {p.label}
+          </Button>
+        ))}
+      </div>
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <Input
           placeholder="Search notes, tags…"

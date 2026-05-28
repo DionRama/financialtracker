@@ -104,6 +104,22 @@ export function firstOfMonth(dateIso: string): string {
   return `${dateIso.slice(0, 7)}-01`;
 }
 
+/** Local-time YYYY-MM-DD. "Today" as the user reads it on the wall clock. */
+export function todayIsoLocal(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${PAD(d.getMonth() + 1)}-${PAD(d.getDate())}`;
+}
+
+/** ISO week start (Monday) for the given local-date string. Returns YYYY-MM-DD. */
+export function weekStartMonday(dateIso: string): string {
+  const [y, m, d] = dateIso.split("-").map(Number);
+  const dt = new Date(y, (m ?? 1) - 1, d ?? 1); // local time
+  const dow = dt.getDay(); // 0 = Sun, 1 = Mon, ... 6 = Sat
+  const offset = (dow + 6) % 7; // 0 if Mon, 6 if Sun
+  dt.setDate(dt.getDate() - offset);
+  return `${dt.getFullYear()}-${PAD(dt.getMonth() + 1)}-${PAD(dt.getDate())}`;
+}
+
 /**
  * Format a period key for display. When startDay = 1, returns just the month
  * name ("June 2026"). Otherwise includes the range ("June 2026 (May 26 – Jun 25)").
