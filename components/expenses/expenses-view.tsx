@@ -75,9 +75,9 @@ export function ExpensesView({
   const [editing, setEditing] = useState<ExpenseRow | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("__all__");
   const [search, setSearch] = useState("");
-  const [timeFilter, setTimeFilter] = useState<
-    "all" | "today" | "week" | "period"
-  >("all");
+  const [timeFilter, setTimeFilter] = useState<"today" | "week" | "period">(
+    "period",
+  );
   const [pending, startTransition] = useTransition();
   const [deleting, setDeleting] = useState<ExpenseRow | null>(null);
 
@@ -94,8 +94,8 @@ export function ExpensesView({
       if (timeFilter === "today" && occurred !== today) return false;
       if (timeFilter === "week" && (occurred < weekStart || occurred > today))
         return false;
-      // "period" and "all" need no extra filter: the server already
-      // constrained the loaded rows to the current pay-cycle period.
+      // "period" is the no-op fall-through (the server already
+      // constrained the loaded rows to the current pay-cycle period).
       if (categoryFilter === "__none__" && e.category_id) return false;
       if (
         categoryFilter !== "__all__" &&
@@ -125,7 +125,6 @@ export function ExpensesView({
   }
 
   const TIME_PILLS: { key: typeof timeFilter; label: string }[] = [
-    { key: "all", label: "All" },
     { key: "today", label: "Today" },
     { key: "week", label: "This week" },
     { key: "period", label: "This period" },
